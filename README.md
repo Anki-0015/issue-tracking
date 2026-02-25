@@ -1,7 +1,5 @@
 # CivicReport
 
-A citizen issue reporting platform where users can sign up, log in, and track civic issues in their community.
-
 ## Tech Stack
 
 | Layer    | Technology                          |
@@ -10,19 +8,6 @@ A citizen issue reporting platform where users can sign up, log in, and track ci
 | Backend  | Express 4, TypeScript, Prisma 5     |
 | Database | PostgreSQL                          |
 | Auth     | JWT (HTTP-only cookies)             |
-
-## Project Structure
-
-```
-issue-tracking/
-├── backend/       # Express + Prisma API
-└── frontend/      # Next.js app
-```
-
-## Prerequisites
-
-- Node.js 18+
-- PostgreSQL (running locally)
 
 ## Setup
 
@@ -102,10 +87,4 @@ npm run dev
 ```
 Runs on http://localhost:3000
 
-## Features
 
-- Sign up / Log in with JWT auth (HTTP-only cookies)
-- Protected dashboard and profile pages
-- Show password toggle on auth forms
-- Profile page displays real user data from DB
-- Responsive dark navy + white UI
