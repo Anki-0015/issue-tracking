@@ -16,6 +16,25 @@ const navLinks = [
     ),
   },
   {
+    href: '/issues',
+    label: 'Issue Center',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9A2.25 2.25 0 015.25 16.5v-9A2.25 2.25 0 017.5 5.25h9A2.25 2.25 0 0118.75 7.5v9A2.25 2.25 0 0116.5 18.75z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 9.75h7.5M8.25 12h7.5M8.25 14.25h4.5" />
+      </svg>
+    ),
+  },
+  {
+    href: '/issues/report',
+    label: 'Report Issue',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      </svg>
+    ),
+  },
+  {
     href: '/profile',
     label: 'My Profile',
     icon: (
@@ -30,27 +49,56 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<ApiUser | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     getCurrentUser().then(({ data }) => {
-      if (data?.user) setUser(data.user);
+      if (!isMounted) return;
+
+      if (data?.user) {
+        setUser(data.user);
+      } else {
+        router.replace('/login');
+      }
+
+      setAuthChecking(false);
+    }).catch(() => {
+      if (!isMounted) return;
+      setAuthChecking(false);
+      router.replace('/login');
     });
-  }, []);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
 
   const handleLogout = async () => {
     await logoutUser();
-    router.push('/login');
+    router.replace('/login');
   };
 
+  if (authChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-sm text-gray-500">Checking your session...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-[#0A1628] flex flex-col shrink-0">
-        {/* Brand */}
-        <div className="flex items-center gap-3 px-6 py-5 border-b border-white/10">
-          <div className="flex items-center justify-center w-8 h-8 rounded-md bg-[#1a56db]">
+    <div className="min-h-screen bg-transparent flex">
+      <aside className="hidden md:flex w-72 bg-[#08213c] flex-col shrink-0 border-r border-white/10">
+        <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#0ea5a4]">
             <svg
-              className="w-4 h-4 text-white"
+              className="w-5 h-5 text-white"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -64,26 +112,25 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
             </svg>
           </div>
           <div>
-            <span className="text-sm font-bold text-white tracking-tight">CivicReport</span>
-            <p className="text-[10px] text-white/40 leading-none mt-0.5">Issue Reporting Platform</p>
+            <span className="text-base font-bold text-white tracking-tight">CivicReport</span>
+            <p className="text-[11px] text-cyan-100/70 leading-none mt-0.5">City Operations Workspace</p>
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-3 py-5 space-y-1">
-          <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-white/30">
-            Main Menu
+        <nav className="flex-1 px-4 py-6 space-y-1">
+          <p className="px-3 mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-50/50">
+            Workspace
           </p>
           {navLinks.map((link) => {
-            const isActive = pathname === link.href;
+            const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors ${
                   isActive
-                    ? 'bg-[#1a56db] text-white'
-                    : 'text-white/60 hover:text-white hover:bg-white/10'
+                    ? 'bg-white/15 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]'
+                    : 'text-cyan-50/70 hover:text-white hover:bg-white/10'
                 }`}
               >
                 {link.icon}
@@ -93,11 +140,15 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
           })}
         </nav>
 
-        {/* Logout */}
-        <div className="px-3 pb-5 border-t border-white/10 pt-4">
+        <div className="mx-4 mb-4 rounded-xl border border-white/10 bg-white/5 p-4">
+          <p className="text-xs text-cyan-50/70">Signed in as</p>
+          <p className="mt-1 text-sm font-semibold text-white truncate">{user.email}</p>
+        </div>
+
+        <div className="px-4 pb-5 border-t border-white/10 pt-4">
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            className="flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-cyan-50/70 hover:text-white hover:bg-white/10 transition-colors"
           >
             <svg
               className="w-5 h-5"
@@ -117,12 +168,17 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
-        <header className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between shrink-0">
-          <div>
-            <p className="text-xs text-gray-400">
+        <header className="glass-card border-b border-border px-5 md:px-8 py-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg bg-brand text-white">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5M3.75 12h16.5M3.75 18.75h16.5" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-muted font-semibold">Municipal Console</p>
+              <p className="text-sm text-foreground/80">
               {new Date().toLocaleDateString('en-US', {
                 weekday: 'long',
                 year: 'numeric',
@@ -130,17 +186,20 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
                 day: 'numeric',
               })}
             </p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#0A1628] text-white text-xs font-bold">
-              {user ? user.name.charAt(0).toUpperCase() : '?'}
+            <div className="hidden sm:block text-right">
+              <p className="text-sm font-semibold text-foreground">{user.name}</p>
+              <p className="text-xs text-muted">Citizen Reporter</p>
             </div>
-            {user && <span className="text-sm font-medium text-gray-700">{user.name}</span>}
+            <div className="flex items-center justify-center w-9 h-9 rounded-full bg-brand text-white text-xs font-bold">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-auto px-4 py-4 md:p-8">{children}</main>
       </div>
     </div>
   );

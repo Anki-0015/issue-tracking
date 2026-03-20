@@ -1,10 +1,10 @@
 generator client {
   provider = "prisma-client-js"
+  engineType = "binary"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -15,5 +15,78 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  issuesCreated       Issue[]              @relation("IssueReporter")
+  issueStatusChanges  IssueStatusHistory[] @relation("IssueStatusChangedBy")
+
   @@map("users")
+}
+
+enum IssueCategory {
+  ROADS
+  ACCESSIBILITY
+  SANITATION
+  UTILITIES
+  PUBLIC_SAFETY
+}
+
+enum IssueSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IssueStatus {
+  REPORTED
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+model Issue {
+  id              String        @id @default(uuid())
+  issueCode       String        @unique
+  title           String
+  description     String
+  category        IssueCategory
+  subCategory     String
+  severity        IssueSeverity @default(MEDIUM)
+  status          IssueStatus   @default(REPORTED)
+  latitude        Float?
+  longitude       Float?
+  locationLabel   String?
+  mediaUrls       String[]
+  rejectionReason String?
+  acknowledgedAt  DateTime?
+  resolvedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  reporterId String
+  reporter   User @relation("IssueReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  statusHistory IssueStatusHistory[]
+
+  @@index([status, createdAt])
+  @@index([category])
+  @@index([reporterId])
+  @@index([createdAt])
+  @@map("issues")
+}
+
+model IssueStatusHistory {
+  id          String      @id @default(uuid())
+  comment     String?
+  fromStatus  IssueStatus?
+  toStatus    IssueStatus
+  createdAt   DateTime    @default(now())
+  issueId     String
+  changedById String
+
+  issue      Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  changedBy  User  @relation("IssueStatusChangedBy", fields: [changedById], references: [id], onDelete: Cascade)
+
+  @@index([issueId, createdAt])
+  @@map("issue_status_history")
 }

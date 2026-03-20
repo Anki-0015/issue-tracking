@@ -2,7 +2,10 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import path from 'path';
 import authRouter from './routes/auth';
+import issuesRouter from './routes/issues';
+import uploadsRouter from './routes/uploads';
 
 const app = express();
 const PORT = process.env.PORT ?? 4000;
@@ -18,9 +21,12 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRouter);
+app.use('/api/issues', issuesRouter);
+app.use('/api/uploads', uploadsRouter);
 
 // Health check
 app.get('/health', (_req, res) => {
@@ -34,7 +40,7 @@ app.use((_req, res) => {
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`\n🚀  CivicReport API running on http://localhost:${PORT}`);
+  console.log(`\n  CivicReport API running on http://localhost:${PORT}`);
   console.log(`   ENV: ${process.env.NODE_ENV ?? 'development'}\n`);
 });
 
