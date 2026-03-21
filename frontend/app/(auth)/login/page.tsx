@@ -11,10 +11,24 @@ interface LoginForm {
   password: string;
 }
 
+function sanitizeNextPath(candidate: string | null): string {
+  if (!candidate) return '/dashboard';
+
+  if (!candidate.startsWith('/')) {
+    return '/dashboard';
+  }
+
+  if (candidate.startsWith('//')) {
+    return '/dashboard';
+  }
+
+  return candidate;
+}
+
 function LoginFormSection() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get('next') ?? '/dashboard';
+  const nextPath = sanitizeNextPath(searchParams.get('next'));
 
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);

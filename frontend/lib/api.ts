@@ -1,4 +1,5 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const REQUEST_TIMEOUT_MS = 12_000;
 
 export interface ApiUser {
   id: string;
@@ -78,11 +79,15 @@ async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<{ data: T | null; error: string | null }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   try {
     const isFormData = options.body instanceof FormData;
     const res = await fetch(`${API_BASE}${path}`, {
       ...options,
       credentials: 'include',
+      signal: controller.signal,
       headers: isFormData
         ? { ...options.headers }
         : {
@@ -91,15 +96,37 @@ async function request<T>(
           },
     });
 
-    const json = await res.json() as Record<string, unknown>;
+    const contentType = res.headers.get('content-type') ?? '';
+    let payload: Record<string, unknown> | null = null;
 
-    if (!res.ok) {
-      return { data: null, error: (json.error as string) ?? 'Something went wrong' };
+    if (contentType.includes('application/json')) {
+      payload = (await res.json()) as Record<string, unknown>;
+    } else {
+      const text = await res.text();
+      if (text) {
+        payload = { message: text };
+      }
     }
 
-    return { data: json as T, error: null };
-  } catch {
+    if (!res.ok) {
+      return {
+        data: null,
+        error:
+          (payload?.error as string | undefined) ??
+          (payload?.message as string | undefined) ??
+          'Something went wrong',
+      };
+    }
+
+    return { data: (payload as T | null) ?? null, error: null };
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return { data: null, error: 'Request timed out. Please try again.' };
+    }
+
     return { data: null, error: 'Cannot connect to server. Please try again.' };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

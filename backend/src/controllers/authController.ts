@@ -4,13 +4,17 @@ import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/authMiddleware';
 
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  path: '/',
-};
+function getCookieOptions() {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? ('none' as const) : ('lax' as const),
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: '/',
+  };
+}
 
 function signToken(id: string, email: string): string {
   const secret = process.env.JWT_SECRET;
@@ -69,7 +73,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     });
 
     const token = signToken(user.id, user.email);
-    res.cookie('auth_token', token, COOKIE_OPTIONS);
+    res.cookie('auth_token', token, getCookieOptions());
 
     res.status(201).json({
       message: 'Account created successfully',
@@ -110,7 +114,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const token = signToken(user.id, user.email);
-    res.cookie('auth_token', token, COOKIE_OPTIONS);
+    res.cookie('auth_token', token, getCookieOptions());
 
     res.status(200).json({
       message: 'Logged in successfully',
@@ -129,7 +133,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
 // POST /api/auth/logout
 export const logout = (_req: Request, res: Response): void => {
-  res.clearCookie('auth_token', { path: '/' });
+  const options = getCookieOptions();
+  res.clearCookie('auth_token', {
+    path: options.path,
+    secure: options.secure,
+    sameSite: options.sameSite,
+    httpOnly: options.httpOnly,
+  });
   res.status(200).json({ message: 'Logged out successfully' });
 };
 

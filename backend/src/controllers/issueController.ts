@@ -29,6 +29,25 @@ function parseEnum<T extends string>(value: string | undefined, validValues: rea
   return validValues.includes(normalized) ? normalized : null;
 }
 
+function parseIsoDate(value: string | undefined): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isValidMediaUrl(url: string): boolean {
+  if (url.startsWith('/uploads/')) {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function calculateTimeToFinishMinutes(issue: Issue): number | null {
   if (!issue.resolvedAt) return null;
   const millis = issue.resolvedAt.getTime() - issue.createdAt.getTime();
@@ -91,13 +110,28 @@ export const createIssue = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    if (title.trim().length < 5 || title.trim().length > 140) {
+    const cleanTitle = title.trim();
+    const cleanDescription = description.trim();
+    const cleanSubCategory = subCategory.trim();
+    const cleanLocationLabel = locationLabel?.trim();
+
+    if (cleanTitle.length < 5 || cleanTitle.length > 140) {
       res.status(400).json({ error: 'Title must be between 5 and 140 characters' });
       return;
     }
 
-    if (description.trim().length < 20 || description.trim().length > 3000) {
+    if (cleanDescription.length < 20 || cleanDescription.length > 3000) {
       res.status(400).json({ error: 'Description must be between 20 and 3000 characters' });
+      return;
+    }
+
+    if (cleanSubCategory.length < 2 || cleanSubCategory.length > 120) {
+      res.status(400).json({ error: 'subCategory must be between 2 and 120 characters' });
+      return;
+    }
+
+    if (cleanLocationLabel && cleanLocationLabel.length > 180) {
+      res.status(400).json({ error: 'locationLabel must not exceed 180 characters' });
       return;
     }
 
@@ -125,18 +159,23 @@ export const createIssue = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
+    if (mediaUrls && mediaUrls.some((url) => !isValidMediaUrl(url.trim()))) {
+      res.status(400).json({ error: 'Each media URL must be an http(s) URL or /uploads path' });
+      return;
+    }
+
     const issue = await prisma.issue.create({
       data: {
         issueCode: toIssueCode(),
-        title: title.trim(),
-        description: description.trim(),
+        title: cleanTitle,
+        description: cleanDescription,
         category: parsedCategory,
-        subCategory: subCategory.trim(),
+        subCategory: cleanSubCategory,
         severity: parsedSeverity,
         latitude,
         longitude,
-        locationLabel: locationLabel?.trim() || null,
-        mediaUrls: mediaUrls ?? [],
+        locationLabel: cleanLocationLabel || null,
+        mediaUrls: mediaUrls?.map((url) => url.trim()) ?? [],
         reporterId: req.user.id,
         statusHistory: {
           create: {
@@ -200,10 +239,28 @@ export const listIssues = async (req: AuthRequest, res: Response): Promise<void>
       ];
     }
 
-    if (startDate || endDate) {
+    const parsedStartDate = parseIsoDate(startDate);
+    const parsedEndDate = parseIsoDate(endDate);
+
+    if (startDate && !parsedStartDate) {
+      res.status(400).json({ error: 'Invalid startDate value' });
+      return;
+    }
+
+    if (endDate && !parsedEndDate) {
+      res.status(400).json({ error: 'Invalid endDate value' });
+      return;
+    }
+
+    if (parsedStartDate && parsedEndDate && parsedStartDate > parsedEndDate) {
+      res.status(400).json({ error: 'startDate cannot be greater than endDate' });
+      return;
+    }
+
+    if (parsedStartDate || parsedEndDate) {
       where.createdAt = {
-        gte: startDate ? new Date(startDate) : undefined,
-        lte: endDate ? new Date(endDate) : undefined,
+        gte: parsedStartDate ?? undefined,
+        lte: parsedEndDate ?? undefined,
       };
     }
 
@@ -385,6 +442,16 @@ export const updateIssueStatus = async (req: AuthRequest, res: Response): Promis
 
     if (nextStatus === IssueStatus.REJECTED && !rejectionReason?.trim()) {
       res.status(400).json({ error: 'rejectionReason is required when rejecting an issue' });
+      return;
+    }
+
+    if (comment && comment.trim().length > 500) {
+      res.status(400).json({ error: 'comment must not exceed 500 characters' });
+      return;
+    }
+
+    if (rejectionReason && rejectionReason.trim().length > 500) {
+      res.status(400).json({ error: 'rejectionReason must not exceed 500 characters' });
       return;
     }
 

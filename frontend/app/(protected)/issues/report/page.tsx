@@ -25,6 +25,9 @@ const categoryOptions: ApiIssueCategory[] = [
 ];
 
 const severityOptions: ApiIssueSeverity[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+const MAX_IMAGE_COUNT = 6;
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 function displayEnum(value: string): string {
   return value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
@@ -33,6 +36,7 @@ function displayEnum(value: string): string {
 export default function ReportIssuePage() {
   const router = useRouter();
   const [serverError, setServerError] = useState('');
+  const [fileError, setFileError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
 
@@ -49,6 +53,7 @@ export default function ReportIssuePage() {
 
   const onSubmit = async (values: ReportIssueForm) => {
     setServerError('');
+    setFileError('');
     setSubmitting(true);
 
     const uploadedMediaUrls: string[] = [];
@@ -242,20 +247,42 @@ export default function ReportIssuePage() {
               id="images"
               type="file"
               multiple
-              accept="image/*"
+              accept="image/png,image/jpeg,image/webp"
               className="w-full rounded-xl border border-border px-4 py-2.5 text-sm bg-white outline-none focus:border-brand"
               onChange={(event) => {
                 const selectedFiles = Array.from(event.target.files ?? []);
-                setFiles(selectedFiles.slice(0, 6));
+                if (selectedFiles.length > MAX_IMAGE_COUNT) {
+                  setFileError(`You can upload up to ${MAX_IMAGE_COUNT} images.`);
+                  setFiles(selectedFiles.slice(0, MAX_IMAGE_COUNT));
+                  return;
+                }
+
+                const hasUnsupportedType = selectedFiles.some((file) => !ALLOWED_IMAGE_TYPES.has(file.type));
+                if (hasUnsupportedType) {
+                  setFileError('Only JPEG, PNG, and WEBP files are allowed.');
+                  setFiles([]);
+                  return;
+                }
+
+                const hasOversizedFile = selectedFiles.some((file) => file.size > MAX_IMAGE_SIZE_BYTES);
+                if (hasOversizedFile) {
+                  setFileError('Each image must be 5MB or smaller.');
+                  setFiles([]);
+                  return;
+                }
+
+                setFileError('');
+                setFiles(selectedFiles);
               }}
             />
             <p className="mt-1.5 text-xs text-muted">Up to 6 images, max 5MB each.</p>
+            {fileError && <p className="mt-1.5 text-xs text-red-600">{fileError}</p>}
           </div>
 
           <div className="md:col-span-2 pt-2">
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || Boolean(fileError)}
               className="inline-flex items-center justify-center rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-strong disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {submitting ? 'Submitting...' : 'Submit Issue'}
