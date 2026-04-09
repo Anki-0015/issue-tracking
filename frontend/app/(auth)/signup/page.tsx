@@ -16,6 +16,8 @@ interface SignupForm {
 export default function SignupPage() {
   const router = useRouter();
   const [serverError, setServerError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const {
@@ -68,7 +70,7 @@ export default function SignupPage() {
 
       <section className="min-h-screen flex items-center justify-center p-4 sm:p-8 bg-transparent">
         <div className="w-full max-w-md glass-card rounded-2xl border border-border shadow-[0_20px_80px_rgba(15,35,61,0.14)]">
-          <div className="h-1.5 rounded-t-2xl bg-gradient-to-r from-brand via-[#0a6599] to-accent" />
+          <div className="h-1.5 rounded-t-2xl bg-linear-to-r from-brand via-[#0a6599] to-accent" />
 
           <div className="p-7 sm:p-9">
             <div className="flex items-center gap-3">
@@ -140,19 +142,29 @@ export default function SignupPage() {
                 <label htmlFor="password" className="block text-sm font-semibold text-foreground/80 mb-1.5">
                   Password
                 </label>
-                <input
-                  id="password"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Minimum 8 characters"
-                  className={`w-full rounded-xl border px-4 py-2.5 text-sm bg-white outline-none transition ${
-                    errors.password ? 'border-red-400' : 'border-border focus:border-brand'
-                  }`}
-                  {...register('password', {
-                    required: 'Password is required',
-                    minLength: { value: 8, message: 'Password must be at least 8 characters' },
-                  })}
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    placeholder="Minimum 8 characters"
+                    className={`w-full rounded-xl border px-4 py-2.5 pr-16 text-sm bg-white outline-none transition ${
+                      errors.password ? 'border-red-400' : 'border-border focus:border-brand'
+                    }`}
+                    {...register('password', {
+                      required: 'Password is required',
+                      minLength: { value: 8, message: 'Password must be at least 8 characters' },
+                    })}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute inset-y-0 right-3 text-xs font-semibold text-muted hover:text-brand transition-colors"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
                 {errors.password && <p className="mt-1.5 text-xs text-red-600">{errors.password.message}</p>}
               </div>
 
@@ -160,23 +172,38 @@ export default function SignupPage() {
                 <label htmlFor="confirmPassword" className="block text-sm font-semibold text-foreground/80 mb-1.5">
                   Confirm password
                 </label>
-                <input
-                  id="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Re-enter your password"
-                  className={`w-full rounded-xl border px-4 py-2.5 text-sm bg-white outline-none transition ${
-                    errors.confirmPassword ? 'border-red-400' : 'border-border focus:border-brand'
-                  }`}
-                  {...register('confirmPassword', {
-                    required: 'Please confirm your password',
-                    validate: (value) =>
-                      value === getValues('password') || 'Passwords do not match',
-                  })}
-                />
+                <div className="relative">
+                  <input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    placeholder="Re-enter your password"
+                    className={`w-full rounded-xl border px-4 py-2.5 pr-16 text-sm bg-white outline-none transition ${
+                      errors.confirmPassword ? 'border-red-400' : 'border-border focus:border-brand'
+                    }`}
+                    {...register('confirmPassword', {
+                      required: 'Please confirm your password',
+                      validate: (value) =>
+                        value === getValues('password') || 'Passwords do not match',
+                    })}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    className="absolute inset-y-0 right-3 text-xs font-semibold text-muted hover:text-brand transition-colors"
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showConfirmPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
                 {errors.confirmPassword && (
                   <p className="mt-1.5 text-xs text-red-600">{errors.confirmPassword.message}</p>
                 )}
+                <div className="mt-2 text-right">
+                  <Link href="/forgot-password" className="text-xs font-semibold text-brand hover:text-brand-strong transition-colors">
+                    Forgot password?
+                  </Link>
+                </div>
               </div>
 
               <button

@@ -31,6 +31,7 @@ function LoginFormSection() {
   const nextPath = sanitizeNextPath(searchParams.get('next'));
 
   const [serverError, setServerError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const {
@@ -77,7 +78,7 @@ function LoginFormSection() {
 
       <section className="min-h-screen flex items-center justify-center p-4 sm:p-8 bg-transparent">
         <div className="w-full max-w-md glass-card rounded-2xl border border-border shadow-[0_20px_80px_rgba(15,35,61,0.14)]">
-          <div className="h-1.5 rounded-t-2xl bg-gradient-to-r from-brand via-[#0a6599] to-accent" />
+          <div className="h-1.5 rounded-t-2xl bg-linear-to-r from-brand via-[#0a6599] to-accent" />
           <div className="p-7 sm:p-9">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-brand flex items-center justify-center text-white">
@@ -128,19 +129,34 @@ function LoginFormSection() {
                 <label htmlFor="password" className="block text-sm font-semibold text-foreground/80 mb-1.5">
                   Password
                 </label>
-                <input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder="Enter your password"
-                  className={`w-full rounded-xl border px-4 py-2.5 text-sm bg-white outline-none transition ${
-                    errors.password ? 'border-red-400' : 'border-border focus:border-brand'
-                  }`}
-                  {...register('password', {
-                    required: 'Password is required',
-                  })}
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    placeholder="Enter your password"
+                    className={`w-full rounded-xl border px-4 py-2.5 pr-16 text-sm bg-white outline-none transition ${
+                      errors.password ? 'border-red-400' : 'border-border focus:border-brand'
+                    }`}
+                    {...register('password', {
+                      required: 'Password is required',
+                    })}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute inset-y-0 right-3 text-xs font-semibold text-muted hover:text-brand transition-colors"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
                 {errors.password && <p className="mt-1.5 text-xs text-red-600">{errors.password.message}</p>}
+                <div className="mt-2 text-right">
+                  <Link href="/forgot-password" className="text-xs font-semibold text-brand hover:text-brand-strong transition-colors">
+                    Forgot password?
+                  </Link>
+                </div>
               </div>
 
               <button

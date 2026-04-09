@@ -5,6 +5,8 @@ RUN npm ci
 
 FROM node:22-alpine AS build
 WORKDIR /app
+ARG DATABASE_URL=postgresql://civicreport:civicreport@postgres:5432/civicreport
+ENV DATABASE_URL=${DATABASE_URL}
 COPY package*.json ./
 COPY tsconfig.json ./
 COPY prisma.config.ts ./

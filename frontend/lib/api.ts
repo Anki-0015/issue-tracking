@@ -148,6 +148,20 @@ export async function registerUser(payload: {
   });
 }
 
+export async function requestPasswordReset(payload: { email: string }) {
+  return request<{ message: string }>('/api/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function resetPassword(payload: { token: string; newPassword: string }) {
+  return request<{ message: string }>('/api/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function logoutUser() {
   return request<{ message: string }>('/api/auth/logout', { method: 'POST' });
 }
