@@ -9,7 +9,9 @@ import path from 'path';
 import authRouter from './routes/auth';
 import issuesRouter from './routes/issues';
 import uploadsRouter from './routes/uploads';
+import { isEmailDeliveryConfigured } from './lib/email';
 import prisma from './lib/prisma';
+import { sendError } from './lib/http';
 
 const app = express();
 const PORT = process.env.PORT ?? 4000;
@@ -19,6 +21,10 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET is not defined');
+}
+
+if (!isEmailDeliveryConfigured()) {
+  console.warn('[startup] Email delivery is not fully configured; forgot-password emails may fail.');
 }
 
 app.set('trust proxy', 1);
@@ -62,7 +68,7 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), {
-  maxAge: isProduction ? '1d' : 0,
+  maxAge: isProduction ? 24 * 60 * 60 * 1000 : 0,
   immutable: isProduction,
 }));
 
@@ -89,22 +95,22 @@ app.get('/ready', async (_req, res) => {
 
 // 404 handler
 app.use((_req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  sendError(res, 404, 'Route not found');
 });
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (err.message.includes('CORS')) {
-    res.status(403).json({ error: 'Origin not allowed' });
+    sendError(res, 403, 'Origin not allowed');
     return;
   }
 
   if (err instanceof SyntaxError) {
-    res.status(400).json({ error: 'Malformed JSON body' });
+    sendError(res, 400, 'Malformed JSON body');
     return;
   }
 
   console.error('[unhandled-error]', err);
-  res.status(500).json({ error: 'Internal server error' });
+  sendError(res, 500, 'Internal server error');
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────

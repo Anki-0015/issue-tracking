@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { sendError } from '../lib/http';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -17,13 +18,13 @@ export const authMiddleware = (
     const token = req.cookies?.auth_token as string | undefined;
 
     if (!token) {
-      res.status(401).json({ error: 'Unauthorized: No token provided' });
+      sendError(res, 401, 'Unauthorized: No token provided');
       return;
     }
 
     const secret = process.env.JWT_SECRET;
     if (!secret) {
-      res.status(500).json({ error: 'Internal server error' });
+      sendError(res, 500, 'Internal server error');
       return;
     }
 
@@ -31,6 +32,6 @@ export const authMiddleware = (
     req.user = { id: decoded.id, email: decoded.email };
     next();
   } catch {
-    res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    sendError(res, 401, 'Unauthorized: Invalid token');
   }
 };

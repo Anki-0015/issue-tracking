@@ -1,6 +1,5 @@
 import { Response } from 'express';
 import {
-  Issue,
   IssueCategory,
   IssueSeverity,
   IssueStatus,
@@ -8,6 +7,14 @@ import {
 } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { handleControllerError, sendError } from '../lib/http';
+import {
+  calculateAverageHours,
+  generateIssueCode,
+  isValidMediaUrl,
+  mapIssueWithDerivedFields,
+} from '../lib/issues';
+import { isValidCoordinates, parseEnum, parseIsoDate } from '../lib/validation';
 
 const STATUS_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
   REPORTED: [IssueStatus.ACKNOWLEDGED, IssueStatus.REJECTED],
@@ -17,69 +24,11 @@ const STATUS_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
   REJECTED: [],
 };
 
-function toIssueCode(): string {
-  const stamp = Date.now().toString().slice(-6);
-  const suffix = Math.floor(100 + Math.random() * 900);
-  return `CIV-${stamp}${suffix}`;
-}
-
-function parseEnum<T extends string>(value: string | undefined, validValues: readonly T[]): T | null {
-  if (!value) return null;
-  const normalized = value.trim().toUpperCase() as T;
-  return validValues.includes(normalized) ? normalized : null;
-}
-
-function parseIsoDate(value: string | undefined): Date | null {
-  if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function isValidMediaUrl(url: string): boolean {
-  if (url.startsWith('/uploads/')) {
-    return true;
-  }
-
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
-function calculateTimeToFinishMinutes(issue: Issue): number | null {
-  if (!issue.resolvedAt) return null;
-  const millis = issue.resolvedAt.getTime() - issue.createdAt.getTime();
-  return Math.max(0, Math.round(millis / (1000 * 60)));
-}
-
-function mapIssue(issue: Issue) {
-  return {
-    ...issue,
-    timeToFinishMinutes: calculateTimeToFinishMinutes(issue),
-  };
-}
-
-function validateCoordinates(latitude?: number, longitude?: number): boolean {
-  if (typeof latitude !== 'number' || typeof longitude !== 'number') {
-    return false;
-  }
-
-  return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
-}
-
-function calculateAverageHours(values: number[]): number {
-  if (values.length === 0) return 0;
-  const sum = values.reduce((acc, value) => acc + value, 0);
-  return Math.round((sum / values.length) * 10) / 10;
-}
-
 // POST /api/issues
 export const createIssue = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
-      res.status(401).json({ error: 'Unauthorized' });
+      sendError(res, 401, 'Unauthorized');
       return;
     }
 
@@ -106,7 +55,7 @@ export const createIssue = async (req: AuthRequest, res: Response): Promise<void
     };
 
     if (!title || !description || !category || !subCategory) {
-      res.status(400).json({ error: 'Title, description, category and subCategory are required' });
+      sendError(res, 400, 'Title, description, category and subCategory are required');
       return;
     }
 
@@ -116,57 +65,57 @@ export const createIssue = async (req: AuthRequest, res: Response): Promise<void
     const cleanLocationLabel = locationLabel?.trim();
 
     if (cleanTitle.length < 5 || cleanTitle.length > 140) {
-      res.status(400).json({ error: 'Title must be between 5 and 140 characters' });
+      sendError(res, 400, 'Title must be between 5 and 140 characters');
       return;
     }
 
     if (cleanDescription.length < 20 || cleanDescription.length > 3000) {
-      res.status(400).json({ error: 'Description must be between 20 and 3000 characters' });
+      sendError(res, 400, 'Description must be between 20 and 3000 characters');
       return;
     }
 
     if (cleanSubCategory.length < 2 || cleanSubCategory.length > 120) {
-      res.status(400).json({ error: 'subCategory must be between 2 and 120 characters' });
+      sendError(res, 400, 'subCategory must be between 2 and 120 characters');
       return;
     }
 
     if (cleanLocationLabel && cleanLocationLabel.length > 180) {
-      res.status(400).json({ error: 'locationLabel must not exceed 180 characters' });
+      sendError(res, 400, 'locationLabel must not exceed 180 characters');
       return;
     }
 
     const parsedCategory = parseEnum(category, Object.values(IssueCategory));
     if (!parsedCategory) {
-      res.status(400).json({ error: 'Invalid issue category' });
+      sendError(res, 400, 'Invalid issue category');
       return;
     }
 
     const parsedSeverity = parseEnum(severity, Object.values(IssueSeverity)) ?? IssueSeverity.MEDIUM;
 
     const hasAnyCoordinate = latitude !== undefined || longitude !== undefined;
-    if (hasAnyCoordinate && !validateCoordinates(latitude, longitude)) {
-      res.status(400).json({ error: 'Latitude and longitude must be valid GPS coordinates' });
+    if (hasAnyCoordinate && !isValidCoordinates(latitude, longitude)) {
+      sendError(res, 400, 'Latitude and longitude must be valid GPS coordinates');
       return;
     }
 
     if (mediaUrls && (!Array.isArray(mediaUrls) || mediaUrls.length > 6)) {
-      res.status(400).json({ error: 'mediaUrls must be an array with up to 6 URLs' });
+      sendError(res, 400, 'mediaUrls must be an array with up to 6 URLs');
       return;
     }
 
     if (mediaUrls && mediaUrls.some((url) => typeof url !== 'string' || !url.trim())) {
-      res.status(400).json({ error: 'Each media URL must be a non-empty string' });
+      sendError(res, 400, 'Each media URL must be a non-empty string');
       return;
     }
 
     if (mediaUrls && mediaUrls.some((url) => !isValidMediaUrl(url.trim()))) {
-      res.status(400).json({ error: 'Each media URL must be an http(s) URL or /uploads path' });
+      sendError(res, 400, 'Each media URL must be an http(s) URL or /uploads path');
       return;
     }
 
     const issue = await prisma.issue.create({
       data: {
-        issueCode: toIssueCode(),
+        issueCode: generateIssueCode(),
         title: cleanTitle,
         description: cleanDescription,
         category: parsedCategory,
@@ -188,10 +137,9 @@ export const createIssue = async (req: AuthRequest, res: Response): Promise<void
       },
     });
 
-    res.status(201).json({ issue: mapIssue(issue) });
+    res.status(201).json({ issue: mapIssueWithDerivedFields(issue) });
   } catch (err) {
-    console.error('[createIssue]', err);
-    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    handleControllerError('createIssue', res, err);
   }
 };
 
@@ -211,17 +159,17 @@ export const listIssues = async (req: AuthRequest, res: Response): Promise<void>
     const parsedSeverity = parseEnum(severity, Object.values(IssueSeverity));
 
     if (category && !parsedCategory) {
-      res.status(400).json({ error: 'Invalid category filter' });
+      sendError(res, 400, 'Invalid category filter');
       return;
     }
 
     if (status && !parsedStatus) {
-      res.status(400).json({ error: 'Invalid status filter' });
+      sendError(res, 400, 'Invalid status filter');
       return;
     }
 
     if (severity && !parsedSeverity) {
-      res.status(400).json({ error: 'Invalid severity filter' });
+      sendError(res, 400, 'Invalid severity filter');
       return;
     }
 
@@ -243,17 +191,17 @@ export const listIssues = async (req: AuthRequest, res: Response): Promise<void>
     const parsedEndDate = parseIsoDate(endDate);
 
     if (startDate && !parsedStartDate) {
-      res.status(400).json({ error: 'Invalid startDate value' });
+      sendError(res, 400, 'Invalid startDate value');
       return;
     }
 
     if (endDate && !parsedEndDate) {
-      res.status(400).json({ error: 'Invalid endDate value' });
+      sendError(res, 400, 'Invalid endDate value');
       return;
     }
 
     if (parsedStartDate && parsedEndDate && parsedStartDate > parsedEndDate) {
-      res.status(400).json({ error: 'startDate cannot be greater than endDate' });
+      sendError(res, 400, 'startDate cannot be greater than endDate');
       return;
     }
 
@@ -286,7 +234,7 @@ export const listIssues = async (req: AuthRequest, res: Response): Promise<void>
     ]);
 
     res.status(200).json({
-      issues: issues.map(mapIssue),
+      issues: issues.map(mapIssueWithDerivedFields),
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -295,8 +243,7 @@ export const listIssues = async (req: AuthRequest, res: Response): Promise<void>
       },
     });
   } catch (err) {
-    console.error('[listIssues]', err);
-    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    handleControllerError('listIssues', res, err);
   }
 };
 
@@ -366,11 +313,10 @@ export const getIssueSummary = async (_req: AuthRequest, res: Response): Promise
         avgAcknowledgeHours,
         avgResolveHours,
       },
-      recentIssues: recentIssues.map(mapIssue),
+      recentIssues: recentIssues.map(mapIssueWithDerivedFields),
     });
   } catch (err) {
-    console.error('[getIssueSummary]', err);
-    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    handleControllerError('getIssueSummary', res, err);
   }
 };
 
@@ -389,19 +335,18 @@ export const getIssueById = async (req: AuthRequest, res: Response): Promise<voi
     });
 
     if (!issue) {
-      res.status(404).json({ error: 'Issue not found' });
+      sendError(res, 404, 'Issue not found');
       return;
     }
 
     res.status(200).json({
       issue: {
-        ...mapIssue(issue),
+        ...mapIssueWithDerivedFields(issue),
         reporter: issue.reporter,
       },
     });
   } catch (err) {
-    console.error('[getIssueById]', err);
-    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    handleControllerError('getIssueById', res, err);
   }
 };
 
@@ -409,7 +354,7 @@ export const getIssueById = async (req: AuthRequest, res: Response): Promise<voi
 export const updateIssueStatus = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
-      res.status(401).json({ error: 'Unauthorized' });
+      sendError(res, 401, 'Unauthorized');
       return;
     }
 
@@ -422,36 +367,34 @@ export const updateIssueStatus = async (req: AuthRequest, res: Response): Promis
 
     const nextStatus = parseEnum(status, Object.values(IssueStatus));
     if (!nextStatus) {
-      res.status(400).json({ error: 'Invalid issue status' });
+      sendError(res, 400, 'Invalid issue status');
       return;
     }
 
     const issue = await prisma.issue.findUnique({ where: { id } });
     if (!issue) {
-      res.status(404).json({ error: 'Issue not found' });
+      sendError(res, 404, 'Issue not found');
       return;
     }
 
     const allowedNextStatuses = STATUS_TRANSITIONS[issue.status];
     if (!allowedNextStatuses.includes(nextStatus)) {
-      res.status(400).json({
-        error: `Invalid transition from ${issue.status} to ${nextStatus}`,
-      });
+      sendError(res, 400, `Invalid transition from ${issue.status} to ${nextStatus}`);
       return;
     }
 
     if (nextStatus === IssueStatus.REJECTED && !rejectionReason?.trim()) {
-      res.status(400).json({ error: 'rejectionReason is required when rejecting an issue' });
+      sendError(res, 400, 'rejectionReason is required when rejecting an issue');
       return;
     }
 
     if (comment && comment.trim().length > 500) {
-      res.status(400).json({ error: 'comment must not exceed 500 characters' });
+      sendError(res, 400, 'comment must not exceed 500 characters');
       return;
     }
 
     if (rejectionReason && rejectionReason.trim().length > 500) {
-      res.status(400).json({ error: 'rejectionReason must not exceed 500 characters' });
+      sendError(res, 400, 'rejectionReason must not exceed 500 characters');
       return;
     }
 
@@ -476,10 +419,9 @@ export const updateIssueStatus = async (req: AuthRequest, res: Response): Promis
       },
     });
 
-    res.status(200).json({ issue: mapIssue(updatedIssue) });
+    res.status(200).json({ issue: mapIssueWithDerivedFields(updatedIssue) });
   } catch (err) {
-    console.error('[updateIssueStatus]', err);
-    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    handleControllerError('updateIssueStatus', res, err);
   }
 };
 
@@ -494,7 +436,7 @@ export const getIssueHistory = async (req: AuthRequest, res: Response): Promise<
     });
 
     if (!issue) {
-      res.status(404).json({ error: 'Issue not found' });
+      sendError(res, 404, 'Issue not found');
       return;
     }
 
@@ -510,7 +452,6 @@ export const getIssueHistory = async (req: AuthRequest, res: Response): Promise<
 
     res.status(200).json({ history });
   } catch (err) {
-    console.error('[getIssueHistory]', err);
-    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    handleControllerError('getIssueHistory', res, err);
   }
 };

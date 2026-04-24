@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
+import { handleControllerError, sendError } from '../lib/http';
 
 export const uploadIssueImage = async (req: Request, res: Response): Promise<void> => {
   try {
     const file = req.file;
 
     if (!file) {
-      res.status(400).json({ error: 'Image file is required' });
+      sendError(res, 400, 'Image file is required');
       return;
     }
 
@@ -15,7 +16,6 @@ export const uploadIssueImage = async (req: Request, res: Response): Promise<voi
       url: filePath,
     });
   } catch (err) {
-    console.error('[uploadIssueImage]', err);
-    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    handleControllerError('uploadIssueImage', res, err);
   }
 };
