@@ -6,10 +6,13 @@ import {
   ApiIssue,
   ApiIssueHistoryItem,
   ApiIssueStatus,
+  ApiUser,
+  getCurrentUser,
   getIssueById,
   getIssueHistory,
   updateIssueStatus,
 } from '@/lib/api';
+import { displayEnum } from '@/lib/format';
 
 const statusOrder: ApiIssueStatus[] = [
   'REPORTED',
@@ -18,10 +21,6 @@ const statusOrder: ApiIssueStatus[] = [
   'RESOLVED',
   'REJECTED',
 ];
-
-function displayEnum(value: string): string {
-  return value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 function getAllowedNextStatuses(currentStatus: ApiIssueStatus): ApiIssueStatus[] {
   const map: Record<ApiIssueStatus, ApiIssueStatus[]> = {
@@ -40,6 +39,7 @@ export default function IssueDetailPage() {
   const router = useRouter();
 
   const [issue, setIssue] = useState<ApiIssue | null>(null);
+  const [viewer, setViewer] = useState<ApiUser | null>(null);
   const [history, setHistory] = useState<ApiIssueHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -55,7 +55,11 @@ export default function IssueDetailPage() {
     setLoading(true);
     setError('');
 
-    const [issueRes, historyRes] = await Promise.all([getIssueById(issueId), getIssueHistory(issueId)]);
+    const [issueRes, historyRes, userRes] = await Promise.all([
+      getIssueById(issueId),
+      getIssueHistory(issueId),
+      getCurrentUser(),
+    ]);
 
     if (issueRes.error) {
       setError(issueRes.error);
@@ -65,6 +69,7 @@ export default function IssueDetailPage() {
 
     setIssue(issueRes.data?.issue ?? null);
     setHistory(historyRes.data?.history ?? []);
+    setViewer(userRes.data?.user ?? null);
     setLoading(false);
   }
 
@@ -90,6 +95,11 @@ export default function IssueDetailPage() {
 
   const handleStatusUpdate = async () => {
     if (!issue || !nextStatus) return;
+
+    if (viewer?.role !== 'ADMIN') {
+      setError('Only admins can change issue status');
+      return;
+    }
 
     setUpdating(true);
 
@@ -195,7 +205,11 @@ export default function IssueDetailPage() {
           <h3 className="text-base font-bold text-foreground">Update Status</h3>
           <p className="text-xs text-muted mt-1">Move issue through workflow with optional official comment.</p>
 
-          {allowedNextStatuses.length === 0 ? (
+          {viewer?.role !== 'ADMIN' ? (
+            <p className="mt-4 rounded-xl border border-border bg-surface-soft p-3 text-sm text-muted">
+              Status updates are restricted to administrator accounts.
+            </p>
+          ) : allowedNextStatuses.length === 0 ? (
             <p className="text-sm text-muted mt-4">This issue has reached a terminal state.</p>
           ) : (
             <div className="mt-4 space-y-3">

@@ -3,18 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ApiIssue, ApiUser, getCurrentUser, getIssues } from '@/lib/api';
-
-function displayEnum(value: string): string {
-  return value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-const statusBadge: Record<string, string> = {
-  RESOLVED: 'bg-green-100 text-green-700',
-  IN_PROGRESS: 'bg-blue-100 text-[#1a56db]',
-  REPORTED: 'bg-amber-100 text-amber-700',
-  ACKNOWLEDGED: 'bg-cyan-100 text-cyan-700',
-  REJECTED: 'bg-rose-100 text-rose-700',
-};
+import { displayEnum } from '@/lib/format';
+import { getIssueStatusBadge } from '@/lib/issue-ui';
 
 export default function ProfilePage() {
   const [user, setUser] = useState<ApiUser | null>(null);
@@ -116,7 +106,7 @@ export default function ProfilePage() {
             <h2 className="text-xl font-bold text-foreground">{user.name}</h2>
             <p className="text-sm text-muted">{user.email}</p>
             <div className="mt-3 inline-flex items-center rounded-full bg-surface-soft px-3 py-1 text-xs font-semibold text-brand border border-border">
-              Authenticated Citizen
+              {user.role === 'ADMIN' ? 'Administrator Account' : 'Authenticated Citizen'}
             </div>
 
             <div className="mt-6 w-full grid grid-cols-3 gap-px bg-border rounded-xl overflow-hidden border border-border">
@@ -186,7 +176,7 @@ export default function ProfilePage() {
                         </td>
                         <td className="px-6 py-3.5 text-muted">{displayEnum(issue.category)}</td>
                         <td className="px-6 py-3.5">
-                          <span className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold ${statusBadge[issue.status] ?? 'bg-gray-100 text-gray-700'}`}>
+                          <span className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold ${getIssueStatusBadge(issue.status)}`}>
                             {displayEnum(issue.status)}
                           </span>
                         </td>

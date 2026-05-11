@@ -3,18 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ApiIssue, ApiIssueSummary, getIssueSummary } from '@/lib/api';
-
-function displayEnum(value: string): string {
-  return value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-const statusBadge: Record<string, string> = {
-  RESOLVED: 'bg-green-100 text-green-700',
-  IN_PROGRESS: 'bg-blue-100 text-[#1a56db]',
-  REPORTED: 'bg-amber-100 text-amber-700',
-  ACKNOWLEDGED: 'bg-cyan-100 text-cyan-700',
-  REJECTED: 'bg-rose-100 text-rose-700',
-};
+import { displayEnum } from '@/lib/format';
+import { getIssueStatusBadge } from '@/lib/issue-ui';
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<ApiIssueSummary | null>(null);
@@ -128,7 +118,7 @@ export default function DashboardPage() {
                     </td>
                     <td className="px-4 py-3.5 text-muted">{displayEnum(issue.category)}</td>
                     <td className="px-4 py-3.5">
-                      <span className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold ${statusBadge[issue.status] ?? 'bg-gray-100 text-gray-700'}`}>
+                      <span className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold ${getIssueStatusBadge(issue.status)}`}>
                         {displayEnum(issue.status)}
                       </span>
                     </td>

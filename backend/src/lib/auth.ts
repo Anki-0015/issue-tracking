@@ -4,6 +4,14 @@ import { Response } from 'express';
 
 const DEFAULT_RESET_TOKEN_EXPIRY_MINUTES = 30;
 
+export type UserRoleValue = 'ADMIN' | 'CITIZEN';
+
+export interface AuthTokenPayload {
+  id: string;
+  email: string;
+  role: UserRoleValue;
+}
+
 export function getAuthCookieOptions() {
   const isProduction = process.env.NODE_ENV === 'production';
 
@@ -16,14 +24,14 @@ export function getAuthCookieOptions() {
   };
 }
 
-export function signAuthToken(id: string, email: string): string {
+export function signAuthToken(id: string, email: string, role: UserRoleValue): string {
   const secret = process.env.JWT_SECRET;
 
   if (!secret) {
     throw new Error('JWT_SECRET is not defined');
   }
 
-  return jwt.sign({ id, email }, secret, { expiresIn: '7d' });
+  return jwt.sign({ id, email, role }, secret, { expiresIn: '7d' });
 }
 
 export function hashSha256Token(token: string): string {

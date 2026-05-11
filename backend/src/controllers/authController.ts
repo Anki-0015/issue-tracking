@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import { UserRole } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/authMiddleware';
 import {
@@ -13,7 +14,7 @@ import {
 } from '../lib/auth';
 import { isEmailDeliveryConfigured, sendPasswordResetEmail } from '../lib/email';
 import { handleControllerError, sendError, sendMessage } from '../lib/http';
-import { isValidEmail, normalizeEmail } from '../lib/validation';
+import { isStrongPassword, isValidEmail, normalizeEmail, parseEnum } from '../lib/validation';
 
 // POST /api/auth/register
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -29,8 +30,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (name.trim().length < 2) {
-      sendError(res, 400, 'Name must be at least 2 characters');
+    if (name.trim().length < 2 || name.trim().length > 80) {
+      sendError(res, 400, 'Name must be between 2 and 80 characters');
       return;
     }
 
@@ -39,8 +40,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (password.length < 8) {
-      sendError(res, 400, 'Password must be at least 8 characters');
+    if (!isStrongPassword(password)) {
+      sendError(res, 400, 'Password must be at least 8 characters and include letters and numbers');
       return;
     }
 
@@ -62,11 +63,12 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         name: name.trim(),
         email: normalizedEmail,
         password: hashedPassword,
+        role: UserRole.CITIZEN,
       },
-      select: { id: true, name: true, email: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
 
-    const token = signAuthToken(user.id, user.email);
+    const token = signAuthToken(user.id, user.email, user.role);
     res.cookie('auth_token', token, getAuthCookieOptions());
 
     res.status(201).json({
@@ -108,7 +110,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const token = signAuthToken(user.id, user.email);
+    const token = signAuthToken(user.id, user.email, user.role);
     res.cookie('auth_token', token, getAuthCookieOptions());
 
     res.status(200).json({
@@ -117,6 +119,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         id: user.id,
         name: user.name,
         email: user.email,
+        role: user.role,
         createdAt: user.createdAt,
       },
     });
@@ -141,7 +144,7 @@ export const me = async (req: AuthRequest, res: Response): Promise<void> => {
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { id: true, name: true, email: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
 
     if (!user) {
@@ -246,8 +249,8 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    if (newPassword.length < 8) {
-      sendError(res, 400, 'Password must be at least 8 characters');
+    if (!isStrongPassword(newPassword)) {
+      sendError(res, 400, 'Password must be at least 8 characters and include letters and numbers');
       return;
     }
 
@@ -286,5 +289,85 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     res.status(200).json({ message: 'Password updated successfully. Please sign in.' });
   } catch (err) {
     handleControllerError('resetPassword', res, err);
+  }
+};
+
+// POST /api/auth/admin/users
+export const createUserByAdmin = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      sendError(res, 401, 'Unauthorized');
+      return;
+    }
+
+    const { name, email, password, role } = req.body as {
+      name?: string;
+      email?: string;
+      password?: string;
+      role?: string;
+    };
+
+    if (!name || !email || !password) {
+      sendError(res, 400, 'Name, email and password are required');
+      return;
+    }
+
+    const cleanName = name.trim();
+    if (cleanName.length < 2 || cleanName.length > 80) {
+      sendError(res, 400, 'Name must be between 2 and 80 characters');
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      sendError(res, 400, 'Please provide a valid email address');
+      return;
+    }
+
+    if (!isStrongPassword(password)) {
+      sendError(res, 400, 'Password must be at least 8 characters and include letters and numbers');
+      return;
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    const parsedRole = parseEnum(role, Object.values(UserRole));
+
+    if (role && !parsedRole) {
+      sendError(res, 400, 'Invalid role value');
+      return;
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      sendError(res, 409, 'An account with this email already exists');
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const createdUser = await prisma.user.create({
+      data: {
+        name: cleanName,
+        email: normalizedEmail,
+        password: hashedPassword,
+        role: parsedRole ?? UserRole.CITIZEN,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+
+    res.status(201).json({
+      message: 'User created successfully',
+      user: createdUser,
+    });
+  } catch (err) {
+    handleControllerError('createUserByAdmin', res, err);
   }
 };

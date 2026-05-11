@@ -9,6 +9,7 @@ import {
   ApiIssueSeverity,
   getIssues,
 } from '@/lib/api';
+import { displayEnum } from '@/lib/format';
 
 const categoryOptions: ApiIssueCategory[] = [
   'ROADS',
@@ -27,10 +28,6 @@ const statusOptions: ApiIssueStatus[] = [
 ];
 
 const severityOptions: ApiIssueSeverity[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
-
-function displayEnum(value: string): string {
-  return value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 export default function IssuesPage() {
   const [issues, setIssues] = useState<ApiIssue[]>([]);

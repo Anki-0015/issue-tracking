@@ -12,6 +12,7 @@ model User {
   name      String
   email     String   @unique
   password  String
+  role      UserRole @default(CITIZEN)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -20,6 +21,11 @@ model User {
   issueStatusChanges  IssueStatusHistory[] @relation("IssueStatusChangedBy")
 
   @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  CITIZEN
 }
 
 model PasswordReset {

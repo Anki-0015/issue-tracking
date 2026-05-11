@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { ApiIssueCategory, ApiIssueSeverity, createIssue, uploadIssueImage } from '@/lib/api';
+import { displayEnum } from '@/lib/format';
 
 interface ReportIssueForm {
   title: string;
@@ -28,10 +29,6 @@ const severityOptions: ApiIssueSeverity[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
 const MAX_IMAGE_COUNT = 6;
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-
-function displayEnum(value: string): string {
-  return value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 export default function ReportIssuePage() {
   const router = useRouter();

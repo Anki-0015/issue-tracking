@@ -18,6 +18,12 @@ export const metadata: Metadata = {
   title: "CivicReport | Smart Civic Issue Management",
   description:
     "A professional civic issue reporting platform with transparent tracking, community engagement, and measurable public impact.",
+  icons: {
+    apple: [
+      { url: "/apple-touch-icon.png" },
+      { url: "/apple-touch-icon-precomposed.png" },
+    ],
+  },
 };
 
 export default function RootLayout({

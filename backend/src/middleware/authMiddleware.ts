@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { AuthTokenPayload } from '../lib/auth';
 import { sendError } from '../lib/http';
 
 export interface AuthRequest extends Request {
   user?: {
     id: string;
     email: string;
+    role: AuthTokenPayload['role'];
   };
 }
 
@@ -28,8 +30,14 @@ export const authMiddleware = (
       return;
     }
 
-    const decoded = jwt.verify(token, secret) as { id: string; email: string };
-    req.user = { id: decoded.id, email: decoded.email };
+    const decoded = jwt.verify(token, secret) as AuthTokenPayload;
+
+    if (!decoded.id || !decoded.email || !decoded.role) {
+      sendError(res, 401, 'Unauthorized: Invalid token payload');
+      return;
+    }
+
+    req.user = { id: decoded.id, email: decoded.email, role: decoded.role };
     next();
   } catch {
     sendError(res, 401, 'Unauthorized: Invalid token');

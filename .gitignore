@@ -32,5 +32,3 @@ next-env.d.ts
 .pnp
 .pnp.*
 /coverage
-.pnp
-.pnp.*

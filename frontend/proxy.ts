@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const protectedRoutes = ['/dashboard', '/profile', '/issues'];
-const authRoutes = ['/login', '/signup'];
+const protectedRoutes = ['/dashboard', '/profile', '/issues', '/admin'];
+const authRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
 
 function applyNoStoreHeaders(response: NextResponse): NextResponse {
   response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -36,5 +36,15 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/dashboard/:path*', '/profile/:path*', '/issues/:path*', '/login', '/signup'],
+  matcher: [
+    '/',
+    '/dashboard/:path*',
+    '/admin/:path*',
+    '/profile/:path*',
+    '/issues/:path*',
+    '/login',
+    '/signup',
+    '/forgot-password',
+    '/reset-password/:path*',
+  ],
 };

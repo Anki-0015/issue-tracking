@@ -1,10 +1,13 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 const REQUEST_TIMEOUT_MS = 12_000;
 
+export type ApiUserRole = 'ADMIN' | 'CITIZEN';
+
 export interface ApiUser {
   id: string;
   name: string;
   email: string;
+  role: ApiUserRole;
   createdAt: string;
 }
 
@@ -60,6 +63,26 @@ export interface ApiIssueHistoryItem {
     id: string;
     name: string;
     email: string;
+  };
+}
+
+export interface ApiAdminActivityItem {
+  id: string;
+  comment: string | null;
+  fromStatus: ApiIssueStatus | null;
+  toStatus: ApiIssueStatus;
+  createdAt: string;
+  changedBy: {
+    id: string;
+    name: string;
+    email: string;
+    role: ApiUserRole;
+  };
+  issue: {
+    id: string;
+    issueCode: string;
+    title: string;
+    status: ApiIssueStatus;
   };
 }
 
@@ -149,13 +172,17 @@ export async function registerUser(payload: {
 }
 
 export async function requestPasswordReset(payload: { email: string }) {
-  return request<{ message: string }>('/api/auth/forgot-password', {
+  return request<{ message: string; debugResetUrl?: string }>('/api/auth/forgot-password', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
 }
 
-export async function resetPassword(payload: { token: string; newPassword: string }) {
+export async function resetPassword(payload: {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}) {
   return request<{ message: string }>('/api/auth/reset-password', {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -248,4 +275,34 @@ export async function uploadIssueImage(file: File) {
     method: 'POST',
     body: formData,
   });
+}
+
+export async function createUserAsAdmin(payload: {
+  name: string;
+  email: string;
+  password: string;
+  role: ApiUserRole;
+}) {
+  return request<{ message: string; user: ApiUser }>('/api/auth/admin/users', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAdminActivity(params?: { page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+
+  if (params?.page) {
+    query.set('page', String(params.page));
+  }
+
+  if (params?.limit) {
+    query.set('limit', String(params.limit));
+  }
+
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  return request<{
+    activity: ApiAdminActivityItem[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  }>(`/api/issues/admin/activity${suffix}`);
 }

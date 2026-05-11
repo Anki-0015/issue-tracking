@@ -45,30 +45,45 @@ const navLinks = [
   },
 ];
 
+const adminNavLink = {
+  href: '/admin',
+  label: 'Admin Panel',
+  icon: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 0h10.5A2.25 2.25 0 0119.5 12.75v6A2.25 2.25 0 0117.25 21h-10.5A2.25 2.25 0 014.5 18.75v-6a2.25 2.25 0 012.25-2.25z" />
+    </svg>
+  ),
+};
+
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<ApiUser | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
+  const [sessionError, setSessionError] = useState('');
 
   useEffect(() => {
     let isMounted = true;
 
-    getCurrentUser().then(({ data }) => {
-      if (!isMounted) return;
+    getCurrentUser()
+      .then(({ data, error }) => {
+        if (!isMounted) return;
 
-      if (data?.user) {
-        setUser(data.user);
-      } else {
-        router.replace('/login');
-      }
+        if (data?.user) {
+          setUser(data.user);
+        } else if (error && /cannot connect|timed out/i.test(error)) {
+          setSessionError('Backend API is unavailable. Please ensure the backend server is running on port 4000.');
+        } else {
+          router.replace('/login');
+        }
 
-      setAuthChecking(false);
-    }).catch(() => {
-      if (!isMounted) return;
-      setAuthChecking(false);
-      router.replace('/login');
-    });
+        setAuthChecking(false);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setSessionError('Backend API is unavailable. Please ensure the backend server is running on port 4000.');
+        setAuthChecking(false);
+      });
 
     return () => {
       isMounted = false;
@@ -88,9 +103,49 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     );
   }
 
+  if (sessionError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 max-w-md w-full">
+          <div className="flex justify-center mb-4">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100">
+              <svg
+                className="w-6 h-6 text-red-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+          </div>
+          <h2 className="text-lg font-semibold text-center text-gray-900 mb-2">
+            Connection Error
+          </h2>
+          <p className="text-center text-gray-600 text-sm mb-6">
+            {sessionError}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return null;
   }
+
+  const workspaceLinks = user.role === 'ADMIN' ? [...navLinks, adminNavLink] : navLinks;
 
   return (
     <div className="min-h-screen bg-transparent flex">
@@ -121,7 +176,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
           <p className="px-3 mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-50/50">
             Workspace
           </p>
-          {navLinks.map((link) => {
+          {workspaceLinks.map((link) => {
             const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <Link
@@ -143,6 +198,11 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         <div className="mx-4 mb-4 rounded-xl border border-white/10 bg-white/5 p-4">
           <p className="text-xs text-cyan-50/70">Signed in as</p>
           <p className="mt-1 text-sm font-semibold text-white truncate">{user.email}</p>
+          {user.role === 'ADMIN' && (
+            <span className="mt-2 inline-flex items-center rounded-full border border-amber-200/40 bg-amber-100/20 px-2 py-0.5 text-[11px] font-semibold text-amber-100">
+              Admin Access
+            </span>
+          )}
         </div>
 
         <div className="px-4 pb-5 border-t border-white/10 pt-4">
@@ -191,7 +251,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-3">
             <div className="hidden sm:block text-right">
               <p className="text-sm font-semibold text-foreground">{user.name}</p>
-              <p className="text-xs text-muted">Citizen Reporter</p>
+              <p className="text-xs text-muted">{user.role === 'ADMIN' ? 'Administrator' : 'Citizen Reporter'}</p>
             </div>
             <div className="flex items-center justify-center w-9 h-9 rounded-full bg-brand text-white text-xs font-bold">
               {user.name.charAt(0).toUpperCase()}

@@ -3,6 +3,7 @@ import {
   IssueCategory,
   IssueSeverity,
   IssueStatus,
+  UserRole,
   Prisma,
 } from '@prisma/client';
 import prisma from '../lib/prisma';
@@ -358,6 +359,11 @@ export const updateIssueStatus = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
+    if (req.user.role !== UserRole.ADMIN) {
+      sendError(res, 403, 'Forbidden: Only admins can change issue status');
+      return;
+    }
+
     const { id } = req.params;
     const { status, comment, rejectionReason } = req.body as {
       status?: string;
@@ -453,5 +459,61 @@ export const getIssueHistory = async (req: AuthRequest, res: Response): Promise<
     res.status(200).json({ history });
   } catch (err) {
     handleControllerError('getIssueHistory', res, err);
+  }
+};
+
+// GET /api/issues/admin/activity
+export const listAdminActivity = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { page = '1', limit = '20' } = req.query as Record<string, string | undefined>;
+
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(50, Math.max(1, Number(limit) || 20));
+
+    const where: Prisma.IssueStatusHistoryWhereInput = {
+      changedBy: {
+        role: UserRole.ADMIN,
+      },
+    };
+
+    const [total, activity] = await Promise.all([
+      prisma.issueStatusHistory.count({ where }),
+      prisma.issueStatusHistory.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (pageNum - 1) * limitNum,
+        take: limitNum,
+        include: {
+          changedBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+          issue: {
+            select: {
+              id: true,
+              issueCode: true,
+              title: true,
+              status: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    res.status(200).json({
+      activity,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (err) {
+    handleControllerError('listAdminActivity', res, err);
   }
 };

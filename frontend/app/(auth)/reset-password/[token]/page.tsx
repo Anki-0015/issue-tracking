@@ -45,6 +45,7 @@ export default function ResetPasswordPage() {
     const { data: response, error } = await resetPassword({
       token,
       newPassword: data.password,
+      confirmPassword: data.confirmPassword,
     });
 
     if (error) {

@@ -27,3 +27,7 @@ export function isValidCoordinates(latitude?: number, longitude?: number): boole
 
   return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
 }
+
+export function isStrongPassword(password: string): boolean {
+  return password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password);
+}

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { requestPasswordReset } from '@/lib/api';
 
@@ -10,8 +11,10 @@ interface ForgotPasswordForm {
 }
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
   const [serverError, setServerError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [debugResetUrl, setDebugResetUrl] = useState('');
   const [loading, setLoading] = useState(false);
 
   const {
@@ -23,6 +26,7 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (data: ForgotPasswordForm) => {
     setServerError('');
     setSuccessMessage('');
+    setDebugResetUrl('');
     setLoading(true);
 
     const { data: response, error } = await requestPasswordReset({
@@ -37,8 +41,11 @@ export default function ForgotPasswordPage() {
 
     setSuccessMessage(
       response?.message ??
-        'If an account with that email exists, a password reset link has been generated.'
+        'If an account with that email exists, a password reset email has been sent. Check your inbox and spam folder.'
     );
+    if (response?.debugResetUrl) {
+      setDebugResetUrl(response.debugResetUrl);
+    }
     setLoading(false);
   };
 
@@ -50,7 +57,7 @@ export default function ForgotPasswordPage() {
         <div className="p-7 sm:p-9">
           <h1 className="text-2xl font-bold text-foreground">Forgot your password?</h1>
           <p className="mt-2 text-sm text-muted">
-            Enter your email and we will generate a reset link for your account.
+            Enter your email and we will send a reset link if an account exists.
           </p>
 
           {serverError && (
@@ -62,6 +69,20 @@ export default function ForgotPasswordPage() {
           {successMessage && (
             <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
               {successMessage}
+            </div>
+          )}
+
+          {debugResetUrl && (
+            <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+              <p className="font-semibold">Local development link</p>
+              <p className="mt-1">Use this to continue password reset in the same tab.</p>
+              <button
+                type="button"
+                onClick={() => router.push(debugResetUrl)}
+                className="mt-2 rounded-lg bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+              >
+                Continue to reset password
+              </button>
             </div>
           )}
 
