@@ -209,7 +209,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   const workspaceLinks = user.role === 'ADMIN' ? [...navLinks, adminNavLink] : navLinks;
 
   return (
-    <div className="min-h-screen bg-transparent flex">
+    <div className="h-screen bg-transparent flex overflow-hidden">
       <aside className="hidden md:flex w-72 bg-[#08213c] flex-col shrink-0 border-r border-white/10">
         <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#0ea5a4]">
@@ -238,7 +238,14 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
             Workspace
           </p>
           {workspaceLinks.map((link) => {
-            const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+            let isActive = false;
+            if (link.href === '/issues') {
+              isActive = pathname === '/issues' || (pathname.startsWith('/issues/') && !pathname.startsWith('/issues/report'));
+            } else if (link.href === '/') {
+              isActive = pathname === '/';
+            } else {
+              isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+            }
             return (
               <Link
                 key={link.href}
@@ -290,7 +297,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="glass-card border-b border-border px-5 md:px-8 py-4 flex items-center justify-between shrink-0">
+        <header className="glass-card border-b border-border px-5 md:px-8 py-4 flex items-center justify-between shrink-0 relative z-[9999]">
           <div className="flex items-center gap-3">
             <div className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg bg-brand text-white">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -329,9 +336,9 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
               {showNotifPanel && (
                 <>
                   {/* Backdrop */}
-                  <div className="fixed inset-0 z-40" onClick={() => setShowNotifPanel(false)} />
+                  <div className="fixed inset-0 z-[9998]" onClick={() => setShowNotifPanel(false)} />
                   {/* Panel */}
-                  <div className="absolute right-0 top-11 z-50 w-80 md:w-96 rounded-2xl border border-border bg-white shadow-xl overflow-hidden">
+                  <div className="absolute right-0 top-11 z-[9999] w-80 md:w-96 rounded-2xl border border-border bg-white shadow-xl overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-soft">
                       <h3 className="text-sm font-bold text-foreground">Notifications</h3>
                       {unreadCount > 0 && (
