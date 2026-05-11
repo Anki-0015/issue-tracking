@@ -8,6 +8,7 @@ export type UserRoleValue = 'ADMIN' | 'CITIZEN';
 
 export interface AuthTokenPayload {
   id: string;
+  name: string;
   email: string;
   role: UserRoleValue;
 }
@@ -24,14 +25,14 @@ export function getAuthCookieOptions() {
   };
 }
 
-export function signAuthToken(id: string, email: string, role: UserRoleValue): string {
+export function signAuthToken(id: string, name: string, email: string, role: UserRoleValue): string {
   const secret = process.env.JWT_SECRET;
 
   if (!secret) {
     throw new Error('JWT_SECRET is not defined');
   }
 
-  return jwt.sign({ id, email, role }, secret, { expiresIn: '7d' });
+  return jwt.sign({ id, name, email, role }, secret, { expiresIn: '7d' });
 }
 
 export function hashSha256Token(token: string): string {

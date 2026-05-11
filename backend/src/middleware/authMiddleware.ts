@@ -6,6 +6,7 @@ import { sendError } from '../lib/http';
 export interface AuthRequest extends Request {
   user?: {
     id: string;
+    name: string;
     email: string;
     role: AuthTokenPayload['role'];
   };
@@ -37,7 +38,7 @@ export const authMiddleware = (
       return;
     }
 
-    req.user = { id: decoded.id, email: decoded.email, role: decoded.role };
+    req.user = { id: decoded.id, name: decoded.name ?? '', email: decoded.email, role: decoded.role };
     next();
   } catch {
     sendError(res, 401, 'Unauthorized: Invalid token');

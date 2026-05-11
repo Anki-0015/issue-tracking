@@ -51,6 +51,8 @@ export interface ApiIssue {
   createdAt: string;
   updatedAt: string;
   timeToFinishMinutes: number | null;
+  upvoteCount: number;
+  hasUpvoted?: boolean;
 }
 
 export interface ApiIssueHistoryItem {
@@ -64,6 +66,34 @@ export interface ApiIssueHistoryItem {
     name: string;
     email: string;
   };
+}
+
+export interface ApiIssueComment {
+  id: string;
+  content: string;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: ApiUserRole;
+  };
+}
+
+export interface ApiNotification {
+  id: string;
+  userId: string;
+  type: string;
+  issueId: string | null;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  issue?: {
+    id: string;
+    issueCode: string;
+    title: string;
+    status: ApiIssueStatus;
+  } | null;
 }
 
 export interface ApiAdminActivityItem {
@@ -153,6 +183,8 @@ async function request<T>(
   }
 }
 
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
 export async function loginUser(payload: { email: string; password: string }) {
   return request<{ user: ApiUser }>('/api/auth/login', {
     method: 'POST',
@@ -197,6 +229,8 @@ export async function getCurrentUser() {
   return request<{ user: ApiUser }>('/api/auth/me');
 }
 
+// ── Issues ────────────────────────────────────────────────────────────────────
+
 export async function createIssue(payload: {
   title: string;
   description: string;
@@ -240,7 +274,7 @@ export async function getIssues(params: {
 }
 
 export async function getIssueSummary() {
-  return request<{ summary: ApiIssueSummary; recentIssues: ApiIssue[] }>('/api/issues/summary');
+  return request<{ summary: ApiIssueSummary; recentIssues: ApiIssue[]; trendingIssues: ApiIssue[] }>('/api/issues/summary');
 }
 
 export async function getIssueById(id: string) {
@@ -276,6 +310,57 @@ export async function uploadIssueImage(file: File) {
     body: formData,
   });
 }
+
+// ── Upvotes ───────────────────────────────────────────────────────────────────
+
+export async function toggleIssueUpvote(issueId: string) {
+  return request<{ upvoted: boolean; upvoteCount: number }>(`/api/issues/${issueId}/upvote`, {
+    method: 'POST',
+  });
+}
+
+// ── Comments ──────────────────────────────────────────────────────────────────
+
+export async function getIssueComments(issueId: string) {
+  return request<{ comments: ApiIssueComment[] }>(`/api/issues/${issueId}/comments`);
+}
+
+export async function addIssueComment(issueId: string, content: string) {
+  return request<{ comment: ApiIssueComment }>(`/api/issues/${issueId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  });
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export async function getNotifications(params?: { page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+
+  if (params?.page) query.set('page', String(params.page));
+  if (params?.limit) query.set('limit', String(params.limit));
+
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  return request<{
+    notifications: ApiNotification[];
+    unreadCount: number;
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  }>(`/api/notifications${suffix}`);
+}
+
+export async function markNotificationRead(id: string) {
+  return request<{ notification: ApiNotification }>(`/api/notifications/${id}/read`, {
+    method: 'PATCH',
+  });
+}
+
+export async function markAllNotificationsRead() {
+  return request<{ message: string }>('/api/notifications/read-all', {
+    method: 'PATCH',
+  });
+}
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
 
 export async function createUserAsAdmin(payload: {
   name: string;

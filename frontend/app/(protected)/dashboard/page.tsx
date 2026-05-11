@@ -9,6 +9,7 @@ import { getIssueStatusBadge } from '@/lib/issue-ui';
 export default function DashboardPage() {
   const [summary, setSummary] = useState<ApiIssueSummary | null>(null);
   const [recentIssues, setRecentIssues] = useState<ApiIssue[]>([]);
+  const [trendingIssues, setTrendingIssues] = useState<ApiIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -26,6 +27,7 @@ export default function DashboardPage() {
       } else {
         setSummary(data.summary);
         setRecentIssues(data.recentIssues);
+        setTrendingIssues(data.trendingIssues ?? []);
       }
 
       setLoading(false);
@@ -82,6 +84,42 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Trending Issues */}
+      {trendingIssues.length > 0 && (
+        <section className="glass-card rounded-2xl border border-border p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-foreground">🔥 Trending Issues</h2>
+              <p className="text-xs text-muted mt-1">Most upvoted active issues from the community</p>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {trendingIssues.map((issue) => (
+              <Link
+                key={issue.id}
+                href={`/issues/${issue.id}`}
+                className="rounded-xl border border-border bg-surface-soft p-4 hover:shadow-md transition-all hover:border-brand/30 group"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold ${getIssueStatusBadge(issue.status)}`}>
+                    {displayEnum(issue.status)}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-red-400 text-xs font-semibold">
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                    </svg>
+                    {issue.upvoteCount}
+                  </span>
+                </div>
+                <h3 className="mt-2 text-sm font-semibold text-foreground group-hover:text-brand transition-colors truncate">{issue.title}</h3>
+                <p className="mt-1 text-xs text-muted">{displayEnum(issue.category)} • {issue.issueCode}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Recent Issues */}
       <section className="glass-card rounded-2xl border border-border p-5">
         <div className="flex items-center justify-between">
           <div>
@@ -100,7 +138,7 @@ export default function DashboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  {['Issue ID', 'Title', 'Category', 'Status', 'Date'].map((col) => (
+                  {['Issue ID', 'Title', 'Category', 'Status', 'Upvotes', 'Date'].map((col) => (
                     <th key={col} className="px-4 py-3 text-left text-[11px] font-semibold text-muted uppercase tracking-[0.14em]">
                       {col}
                     </th>
@@ -120,6 +158,14 @@ export default function DashboardPage() {
                     <td className="px-4 py-3.5">
                       <span className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold ${getIssueStatusBadge(issue.status)}`}>
                         {displayEnum(issue.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="inline-flex items-center gap-1 text-xs text-muted">
+                        <svg className={`w-3 h-3 ${issue.upvoteCount > 0 ? 'text-red-400' : ''}`} fill={issue.upvoteCount > 0 ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                        </svg>
+                        {issue.upvoteCount}
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-muted text-xs">{new Date(issue.createdAt).toLocaleDateString()}</td>

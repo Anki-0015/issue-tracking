@@ -19,6 +19,9 @@ model User {
   passwordResets     PasswordReset[]
   issuesCreated       Issue[]              @relation("IssueReporter")
   issueStatusChanges  IssueStatusHistory[] @relation("IssueStatusChangedBy")
+  issueUpvotes        IssueUpvote[]
+  issueComments       IssueComment[]
+  notifications       Notification[]
 
   @@map("users")
 }
@@ -88,6 +91,9 @@ model Issue {
   reporter   User @relation("IssueReporter", fields: [reporterId], references: [id], onDelete: Cascade)
 
   statusHistory IssueStatusHistory[]
+  upvotes       IssueUpvote[]
+  comments      IssueComment[]
+  notifications Notification[]
 
   @@index([status, createdAt])
   @@index([category])
@@ -110,4 +116,48 @@ model IssueStatusHistory {
 
   @@index([issueId, createdAt])
   @@map("issue_status_history")
+}
+
+model IssueUpvote {
+  id        String   @id @default(uuid())
+  issueId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, userId])
+  @@index([issueId])
+  @@map("issue_upvotes")
+}
+
+model IssueComment {
+  id        String   @id @default(uuid())
+  content   String
+  issueId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([issueId, createdAt])
+  @@map("issue_comments")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  issueId   String?
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  issue Issue? @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt])
+  @@map("notifications")
 }

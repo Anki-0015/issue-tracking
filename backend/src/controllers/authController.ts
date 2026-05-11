@@ -68,7 +68,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
 
-    const token = signAuthToken(user.id, user.email, user.role);
+    const token = signAuthToken(user.id, user.name, user.email, user.role);
     res.cookie('auth_token', token, getAuthCookieOptions());
 
     res.status(201).json({
@@ -110,7 +110,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const token = signAuthToken(user.id, user.email, user.role);
+    const token = signAuthToken(user.id, user.name, user.email, user.role);
     res.cookie('auth_token', token, getAuthCookieOptions());
 
     res.status(200).json({

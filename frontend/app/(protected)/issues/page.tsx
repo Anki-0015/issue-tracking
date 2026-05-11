@@ -10,6 +10,7 @@ import {
   getIssues,
 } from '@/lib/api';
 import { displayEnum } from '@/lib/format';
+import { getIssueStatusBadge } from '@/lib/issue-ui';
 
 const categoryOptions: ApiIssueCategory[] = [
   'ROADS',
@@ -172,7 +173,7 @@ export default function IssuesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-soft">
-                  {['Issue', 'Title', 'Category', 'Severity', 'Status', 'Created', 'Time to Finish'].map((col) => (
+                  {['Issue', 'Title', 'Category', 'Severity', 'Status', 'Upvotes', 'Created'].map((col) => (
                     <th
                       key={col}
                       className="px-4 py-3 text-left text-[11px] font-semibold text-muted uppercase tracking-[0.14em]"
@@ -193,11 +194,20 @@ export default function IssuesPage() {
                     </td>
                     <td className="px-4 py-3.5 text-muted">{displayEnum(issue.category)}</td>
                     <td className="px-4 py-3.5 text-muted">{displayEnum(issue.severity)}</td>
-                    <td className="px-4 py-3.5 text-muted">{displayEnum(issue.status)}</td>
-                    <td className="px-4 py-3.5 text-muted">{new Date(issue.createdAt).toLocaleDateString()}</td>
-                    <td className="px-4 py-3.5 text-muted">
-                      {issue.timeToFinishMinutes !== null ? `${issue.timeToFinishMinutes} min` : '-'}
+                    <td className="px-4 py-3.5">
+                      <span className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold ${getIssueStatusBadge(issue.status)}`}>
+                        {displayEnum(issue.status)}
+                      </span>
                     </td>
+                    <td className="px-4 py-3.5">
+                      <span className="inline-flex items-center gap-1 text-muted">
+                        <svg className={`w-3.5 h-3.5 ${issue.upvoteCount > 0 ? 'text-red-400' : ''}`} fill={issue.upvoteCount > 0 ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                        </svg>
+                        <span className="text-xs font-semibold">{issue.upvoteCount}</span>
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 text-muted text-xs">{new Date(issue.createdAt).toLocaleDateString()}</td>
                   </tr>
                 ))}
               </tbody>

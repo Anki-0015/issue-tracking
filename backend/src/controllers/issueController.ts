@@ -25,6 +25,26 @@ const STATUS_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
   REJECTED: [],
 };
 
+// Helper: enrich an issue with upvote count + current-user upvote flag
+async function enrichIssueWithUpvotes(
+  issue: ReturnType<typeof mapIssueWithDerivedFields>,
+  userId?: string
+) {
+  const upvoteCount = await prisma.issueUpvote.count({
+    where: { issueId: issue.id },
+  });
+
+  let hasUpvoted = false;
+  if (userId) {
+    const existing = await prisma.issueUpvote.findUnique({
+      where: { issueId_userId: { issueId: issue.id, userId } },
+    });
+    hasUpvoted = !!existing;
+  }
+
+  return { ...issue, upvoteCount, hasUpvoted };
+}
+
 // POST /api/issues
 export const createIssue = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -138,7 +158,8 @@ export const createIssue = async (req: AuthRequest, res: Response): Promise<void
       },
     });
 
-    res.status(201).json({ issue: mapIssueWithDerivedFields(issue) });
+    const enriched = await enrichIssueWithUpvotes(mapIssueWithDerivedFields(issue), req.user.id);
+    res.status(201).json({ issue: enriched });
   } catch (err) {
     handleControllerError('createIssue', res, err);
   }
@@ -231,11 +252,30 @@ export const listIssues = async (req: AuthRequest, res: Response): Promise<void>
         skip: (pageNum - 1) * limitNum,
         take: limitNum,
         orderBy,
+        include: {
+          _count: { select: { upvotes: true } },
+        },
       }),
     ]);
 
+    // Get user's upvotes for these issues
+    const issueIds = issues.map((i) => i.id);
+    const userUpvotes = req.user
+      ? await prisma.issueUpvote.findMany({
+          where: { issueId: { in: issueIds }, userId: req.user.id },
+          select: { issueId: true },
+        })
+      : [];
+    const upvotedSet = new Set(userUpvotes.map((u) => u.issueId));
+
+    const enrichedIssues = issues.map((issue) => ({
+      ...mapIssueWithDerivedFields(issue),
+      upvoteCount: issue._count.upvotes,
+      hasUpvoted: upvotedSet.has(issue.id),
+    }));
+
     res.status(200).json({
-      issues: issues.map(mapIssueWithDerivedFields),
+      issues: enrichedIssues,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -261,6 +301,7 @@ export const getIssueSummary = async (_req: AuthRequest, res: Response): Promise
       recentIssues,
       acknowledgedIssues,
       resolvedIssues,
+      topUpvotedIssues,
     ] = await Promise.all([
       prisma.issue.count(),
       prisma.issue.count({ where: { status: IssueStatus.REPORTED } }),
@@ -271,6 +312,7 @@ export const getIssueSummary = async (_req: AuthRequest, res: Response): Promise
       prisma.issue.findMany({
         orderBy: { createdAt: 'desc' },
         take: 6,
+        include: { _count: { select: { upvotes: true } } },
       }),
       prisma.issue.findMany({
         where: { acknowledgedAt: { not: null } },
@@ -279,6 +321,12 @@ export const getIssueSummary = async (_req: AuthRequest, res: Response): Promise
       prisma.issue.findMany({
         where: { resolvedAt: { not: null } },
         select: { createdAt: true, resolvedAt: true },
+      }),
+      prisma.issue.findMany({
+        where: { status: { notIn: [IssueStatus.RESOLVED, IssueStatus.REJECTED] } },
+        orderBy: { upvotes: { _count: 'desc' } },
+        take: 5,
+        include: { _count: { select: { upvotes: true } } },
       }),
     ]);
 
@@ -314,7 +362,16 @@ export const getIssueSummary = async (_req: AuthRequest, res: Response): Promise
         avgAcknowledgeHours,
         avgResolveHours,
       },
-      recentIssues: recentIssues.map(mapIssueWithDerivedFields),
+      recentIssues: recentIssues.map((i) => ({
+        ...mapIssueWithDerivedFields(i),
+        upvoteCount: i._count.upvotes,
+      })),
+      trendingIssues: topUpvotedIssues
+        .filter((i) => i._count.upvotes > 0)
+        .map((i) => ({
+          ...mapIssueWithDerivedFields(i),
+          upvoteCount: i._count.upvotes,
+        })),
     });
   } catch (err) {
     handleControllerError('getIssueSummary', res, err);
@@ -340,9 +397,14 @@ export const getIssueById = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
+    const enriched = await enrichIssueWithUpvotes(
+      mapIssueWithDerivedFields(issue),
+      req.user?.id
+    );
+
     res.status(200).json({
       issue: {
-        ...mapIssueWithDerivedFields(issue),
+        ...enriched,
         reporter: issue.reporter,
       },
     });
@@ -404,6 +466,8 @@ export const updateIssueStatus = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
+    const statusLabel = nextStatus.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+
     const updatedIssue = await prisma.issue.update({
       where: { id },
       data: {
@@ -425,7 +489,20 @@ export const updateIssueStatus = async (req: AuthRequest, res: Response): Promis
       },
     });
 
-    res.status(200).json({ issue: mapIssueWithDerivedFields(updatedIssue) });
+    // Create notification for the reporter
+    if (issue.reporterId !== req.user.id) {
+      await prisma.notification.create({
+        data: {
+          userId: issue.reporterId,
+          type: 'STATUS_CHANGE',
+          issueId: issue.id,
+          message: `Your issue "${issue.title}" has been updated to ${statusLabel}`,
+        },
+      });
+    }
+
+    const enriched = await enrichIssueWithUpvotes(mapIssueWithDerivedFields(updatedIssue), req.user.id);
+    res.status(200).json({ issue: enriched });
   } catch (err) {
     handleControllerError('updateIssueStatus', res, err);
   }
@@ -515,5 +592,147 @@ export const listAdminActivity = async (req: AuthRequest, res: Response): Promis
     });
   } catch (err) {
     handleControllerError('listAdminActivity', res, err);
+  }
+};
+
+// POST /api/issues/:id/upvote
+export const toggleUpvote = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      sendError(res, 401, 'Unauthorized');
+      return;
+    }
+
+    const { id } = req.params;
+
+    const issue = await prisma.issue.findUnique({ where: { id }, select: { id: true, title: true, reporterId: true } });
+    if (!issue) {
+      sendError(res, 404, 'Issue not found');
+      return;
+    }
+
+    const existing = await prisma.issueUpvote.findUnique({
+      where: { issueId_userId: { issueId: id, userId: req.user.id } },
+    });
+
+    if (existing) {
+      // Remove upvote
+      await prisma.issueUpvote.delete({ where: { id: existing.id } });
+      const upvoteCount = await prisma.issueUpvote.count({ where: { issueId: id } });
+      res.status(200).json({ upvoted: false, upvoteCount });
+    } else {
+      // Add upvote
+      await prisma.issueUpvote.create({
+        data: { issueId: id, userId: req.user.id },
+      });
+      const upvoteCount = await prisma.issueUpvote.count({ where: { issueId: id } });
+
+      // Notify reporter at milestones (5, 10, 25, 50, 100)
+      const milestones = [5, 10, 25, 50, 100];
+      if (milestones.includes(upvoteCount) && issue.reporterId !== req.user.id) {
+        await prisma.notification.create({
+          data: {
+            userId: issue.reporterId,
+            type: 'UPVOTE_MILESTONE',
+            issueId: id,
+            message: `Your issue "${issue.title}" reached ${upvoteCount} upvotes!`,
+          },
+        });
+      }
+
+      res.status(200).json({ upvoted: true, upvoteCount });
+    }
+  } catch (err) {
+    handleControllerError('toggleUpvote', res, err);
+  }
+};
+
+// POST /api/issues/:id/comments
+export const addComment = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      sendError(res, 401, 'Unauthorized');
+      return;
+    }
+
+    const { id } = req.params;
+    const { content } = req.body as { content?: string };
+
+    if (!content?.trim()) {
+      sendError(res, 400, 'Comment content is required');
+      return;
+    }
+
+    const cleanContent = content.trim();
+    if (cleanContent.length > 1000) {
+      sendError(res, 400, 'Comment must not exceed 1000 characters');
+      return;
+    }
+
+    const issue = await prisma.issue.findUnique({ where: { id }, select: { id: true, title: true, reporterId: true } });
+    if (!issue) {
+      sendError(res, 404, 'Issue not found');
+      return;
+    }
+
+    const comment = await prisma.issueComment.create({
+      data: {
+        content: cleanContent,
+        issueId: id,
+        userId: req.user.id,
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+      },
+    });
+
+    // Notify reporter if someone else comments
+    if (issue.reporterId !== req.user.id) {
+      await prisma.notification.create({
+        data: {
+          userId: issue.reporterId,
+          type: 'NEW_COMMENT',
+          issueId: id,
+          message: `${req.user.name} commented on your issue "${issue.title}"`,
+        },
+      });
+    }
+
+    res.status(201).json({ comment });
+  } catch (err) {
+    handleControllerError('addComment', res, err);
+  }
+};
+
+// GET /api/issues/:id/comments
+export const listComments = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const issue = await prisma.issue.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!issue) {
+      sendError(res, 404, 'Issue not found');
+      return;
+    }
+
+    const comments = await prisma.issueComment.findMany({
+      where: { issueId: id },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+      },
+    });
+
+    res.status(200).json({ comments });
+  } catch (err) {
+    handleControllerError('listComments', res, err);
   }
 };

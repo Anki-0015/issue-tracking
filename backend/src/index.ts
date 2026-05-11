@@ -9,6 +9,7 @@ import path from 'path';
 import authRouter from './routes/auth';
 import issuesRouter from './routes/issues';
 import uploadsRouter from './routes/uploads';
+import notificationsRouter from './routes/notifications';
 import { isEmailDeliveryConfigured } from './lib/email';
 import prisma from './lib/prisma';
 import { sendError } from './lib/http';
@@ -77,6 +78,7 @@ app.use('/api/auth', authLimiter);
 app.use('/api/auth', authRouter);
 app.use('/api/issues', issuesRouter);
 app.use('/api/uploads', uploadsRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // Health check
 app.get('/health', (_req, res) => {

@@ -3,7 +3,15 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { logoutUser, getCurrentUser, ApiUser } from '@/lib/api';
+import {
+  logoutUser,
+  getCurrentUser,
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  ApiUser,
+  ApiNotification,
+} from '@/lib/api';
 
 const navLinks = [
   {
@@ -55,12 +63,28 @@ const adminNavLink = {
   ),
 };
 
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<ApiUser | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [sessionError, setSessionError] = useState('');
+
+  // Notifications
+  const [notifications, setNotifications] = useState<ApiNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -89,6 +113,43 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
       isMounted = false;
     };
   }, [router]);
+
+  // Poll notifications every 30s
+  useEffect(() => {
+    if (!user) return;
+
+    async function fetchNotifs() {
+      const { data } = await getNotifications({ limit: 10 });
+      if (data) {
+        setNotifications(data.notifications);
+        setUnreadCount(data.unreadCount);
+      }
+    }
+
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const handleNotifClick = async (notif: ApiNotification) => {
+    if (!notif.read) {
+      await markNotificationRead(notif.id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
+      );
+      setUnreadCount((c) => Math.max(0, c - 1));
+    }
+    setShowNotifPanel(false);
+    if (notif.issueId) {
+      router.push(`/issues/${notif.issueId}`);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    await markAllNotificationsRead();
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setUnreadCount(0);
+  };
 
   const handleLogout = async () => {
     await logoutUser();
@@ -249,6 +310,71 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifPanel((p) => !p)}
+                className="relative flex items-center justify-center w-9 h-9 rounded-full border border-border bg-white hover:bg-surface-soft transition-colors"
+              >
+                <svg className="w-5 h-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotifPanel && (
+                <>
+                  {/* Backdrop */}
+                  <div className="fixed inset-0 z-40" onClick={() => setShowNotifPanel(false)} />
+                  {/* Panel */}
+                  <div className="absolute right-0 top-11 z-50 w-80 md:w-96 rounded-2xl border border-border bg-white shadow-xl overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-soft">
+                      <h3 className="text-sm font-bold text-foreground">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={handleMarkAllRead}
+                          className="text-xs font-semibold text-brand hover:text-brand-strong transition-colors"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-72 overflow-y-auto divide-y divide-border">
+                      {notifications.length === 0 ? (
+                        <p className="p-4 text-sm text-muted text-center">No notifications yet</p>
+                      ) : (
+                        notifications.map((notif) => (
+                          <button
+                            key={notif.id}
+                            onClick={() => handleNotifClick(notif)}
+                            className={`w-full text-left px-4 py-3 hover:bg-surface-soft transition-colors ${
+                              !notif.read ? 'bg-blue-50/50' : ''
+                            }`}
+                          >
+                            <div className="flex items-start gap-2">
+                              {!notif.read && (
+                                <span className="mt-1.5 w-2 h-2 rounded-full bg-brand shrink-0" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm ${!notif.read ? 'font-semibold text-foreground' : 'text-foreground/80'}`}>
+                                  {notif.message}
+                                </p>
+                                <p className="text-xs text-muted mt-0.5">{timeAgo(notif.createdAt)}</p>
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="hidden sm:block text-right">
               <p className="text-sm font-semibold text-foreground">{user.name}</p>
               <p className="text-xs text-muted">{user.role === 'ADMIN' ? 'Administrator' : 'Citizen Reporter'}</p>
