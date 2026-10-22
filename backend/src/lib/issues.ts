@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { Issue } from '@prisma/client';
 
 export function generateIssueCode(): string {
-  return `CIV-${Date.now()}-${crypto.randomInt(1000, 10_000)}`;
+  return `CIV-${Date.now()}-${crypto.randomInt(0, 2 ** 48 - 1)}`;
 }
 
 export function isValidMediaUrl(url: string): boolean {
