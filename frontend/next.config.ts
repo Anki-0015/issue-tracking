@@ -4,7 +4,11 @@ const nextConfig: NextConfig = {
   output: process.env.VERCEL ? undefined : 'standalone',
   poweredByHeader: false,
   async rewrites() {
-    const backendUrl = process.env.BACKEND_URL?.replace(/\/$/, '');
+    const backendUrl = (
+      process.env.BACKEND_URL ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      (process.env.VERCEL ? 'https://issue-tracking-ngcx.vercel.app' : undefined)
+    )?.replace(/\/$/, '');
 
     if (!backendUrl) {
       return [];

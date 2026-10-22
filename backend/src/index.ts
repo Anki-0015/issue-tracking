@@ -81,6 +81,15 @@ app.use('/api/issues', issuesRouter);
 app.use('/api/uploads', uploadsRouter);
 app.use('/api/notifications', notificationsRouter);
 
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    name: 'CivicReport API',
+    status: 'ok',
+    health: '/health',
+    readiness: '/ready',
+  });
+});
+
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
