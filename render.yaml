@@ -1,0 +1,49 @@
+databases:
+  - name: civicreport-db
+    databaseName: civicreport
+    user: civicreport
+    plan: free
+
+services:
+  - type: web
+    name: civicreport-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: civicreport-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: http://localhost:3000   # update after frontend is deployed
+      - key: RESET_TOKEN_EXPIRY_MINUTES
+        value: 30
+      - key: ADMIN_NAME
+        value: System Admin
+      - key: ADMIN_EMAIL
+        sync: false   # set manually in dashboard
+      - key: ADMIN_PASSWORD
+        sync: false   # set manually in dashboard
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_SECURE
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: CivicReport Support
