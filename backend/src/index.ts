@@ -17,7 +17,10 @@ import { sendError } from './lib/http';
 const app = express();
 const PORT = process.env.PORT ?? 4000;
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
-const FRONTEND_ORIGINS = FRONTEND_URL.split(',').map((origin) => origin.trim()).filter(Boolean);
+const FRONTEND_ORIGINS = FRONTEND_URL.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+  .map((origin) => (origin.startsWith('http') ? origin : `https://${origin}`));
 const isProduction = process.env.NODE_ENV === 'production';
 
 if (!process.env.JWT_SECRET) {

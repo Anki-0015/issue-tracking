@@ -24,7 +24,10 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        value: http://localhost:3000   # update after frontend is deployed
+        fromService:
+          name: civicreport-frontend
+          type: web
+          property: host
       - key: RESET_TOKEN_EXPIRY_MINUTES
         value: 30
       - key: ADMIN_NAME
@@ -47,3 +50,21 @@ services:
         sync: false
       - key: MAIL_FROM_NAME
         value: CivicReport Support
+
+  - type: web
+    name: civicreport-frontend
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: BACKEND_URL
+        fromService:
+          name: civicreport-backend
+          type: web
+          property: hostWithPort
