@@ -1,4 +1,4 @@
-const API_BASE = '';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 const REQUEST_TIMEOUT_MS = 12_000;
 
 export type ApiUserRole = 'ADMIN' | 'CITIZEN';
