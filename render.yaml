@@ -67,4 +67,4 @@ services:
         fromService:
           name: civicreport-backend
           type: web
-          property: hostWithPort
+          property: host
