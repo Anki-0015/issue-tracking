@@ -1,8 +1,22 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  output: process.env.VERCEL ? undefined : 'standalone',
   poweredByHeader: false,
+  async rewrites() {
+    const backendUrl = process.env.BACKEND_URL?.replace(/\/$/, '');
+
+    if (!backendUrl) {
+      return [];
+    }
+
+    return [
+      { source: '/api/:path*', destination: `${backendUrl}/api/:path*` },
+      { source: '/health', destination: `${backendUrl}/health` },
+      { source: '/ready', destination: `${backendUrl}/ready` },
+      { source: '/uploads/:path*', destination: `${backendUrl}/uploads/:path*` },
+    ];
+  },
   async headers() {
     return [
       {

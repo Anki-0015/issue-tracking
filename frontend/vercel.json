@@ -4,6 +4,7 @@
   "framework": "nextjs",
   "env": {
     "NEXT_PUBLIC_API_URL": "https://issue-tracking-ngcx.vercel.app",
+    "BACKEND_URL": "https://issue-tracking-ngcx.vercel.app",
     "NEXT_PUBLIC_ENABLE_PHOTO_UPLOADS": "false"
   }
 }

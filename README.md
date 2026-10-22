@@ -110,3 +110,42 @@ The frontend reads `NEXT_PUBLIC_API_URL`. The backend requires `DATABASE_URL` an
 ## Continuous Integration
 
 The GitHub Actions workflow installs dependencies, builds both applications, runs frontend linting, and audits runtime dependencies.
+
+## Deploy with Vercel and Supabase
+
+The frontend and Express API run as separate Vercel projects. Supabase provides PostgreSQL and image storage. Production photo uploads are currently disabled; the report form continues to submit issues without photos.
+
+### 1. Create the Supabase project
+
+1. Create a project at [supabase.com](https://supabase.com/).
+2. Create a public Storage bucket named `issue-images` if image uploads will be enabled later.
+3. Copy the Project URL and server-only `service_role` key from **Project Settings → API**. Never put the service-role key in frontend variables.
+4. Copy the Supavisor transaction pooler URL (port `6543`) and session pooler URL (port `5432`) from **Connect**. Replace the password placeholder and append `pgbouncer=true` to the transaction URL.
+
+Use the transaction URL as `DATABASE_URL` and the session URL as `DIRECT_URL` for migrations.
+
+### 2. Apply migrations and create the admin
+
+From `backend`, set the real Supabase values locally and run:
+
+```bash
+npm ci
+export DATABASE_URL='YOUR_SUPABASE_TRANSACTION_URL_WITH_PGBOUNCER_TRUE'
+export DIRECT_URL='YOUR_SUPABASE_SESSION_URL'
+npm run db:migrate:deploy
+export ADMIN_NAME='System Admin'
+export ADMIN_EMAIL='YOUR_ADMIN_EMAIL'
+export ADMIN_PASSWORD='YOUR_STRONG_ADMIN_PASSWORD'
+npm run db:seed
+unset DATABASE_URL DIRECT_URL ADMIN_NAME ADMIN_EMAIL ADMIN_PASSWORD
+```
+
+### 3. Deploy the API to Vercel
+
+Create a Vercel project from this repository with **Root Directory** set to `backend` and Node.js `22.x`. Configure `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `FRONTEND_URL`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY`. Deploy, then check the API's `/health` and `/ready` endpoints.
+
+### 4. Deploy the frontend to Vercel
+
+Create a second Vercel project from this repository with **Root Directory** set to `frontend`. Set `BACKEND_URL` to the API's Vercel URL and keep `NEXT_PUBLIC_ENABLE_PHOTO_UPLOADS` set to `false`. Deploy the frontend and set the API project's `FRONTEND_URL` to the deployed frontend URL.
+
+Password-reset emails require `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and `MAIL_FROM` in the API project's environment.

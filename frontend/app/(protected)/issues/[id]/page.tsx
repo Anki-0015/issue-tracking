@@ -10,6 +10,7 @@ import {
   ApiIssueHistoryItem,
   ApiIssueStatus,
   ApiUser,
+  API_BASE,
   addIssueComment,
   getCurrentUser,
   getIssueById,
@@ -416,7 +417,7 @@ export default function IssueDetailPage() {
           <h3 className="text-base font-bold text-foreground">Evidence Images</h3>
           <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3">
             {issue.mediaUrls.map((url, index) => {
-              const resolvedUrl = url.startsWith('http') ? url : `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}${url}`;
+              const resolvedUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
               return (
                 <a key={`${url}-${index}`} href={resolvedUrl} target="_blank" rel="noreferrer" className="relative block h-40 rounded-xl border border-border overflow-hidden bg-surface-soft hover:shadow-md transition-shadow">
                   <Image src={resolvedUrl} alt={`Issue evidence ${index + 1}`} fill unoptimized sizes="(max-width: 768px) 50vw, 33vw" className="object-cover" />
