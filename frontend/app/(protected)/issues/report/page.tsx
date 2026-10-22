@@ -49,6 +49,7 @@ const SEVERITY_INFO: Record<ApiIssueSeverity, { color: string; description: stri
 const MAX_IMAGE_COUNT = 6;
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const PHOTO_UPLOADS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PHOTO_UPLOADS !== 'false';
 
 interface SelectedImage {
   file: File;
@@ -140,15 +141,17 @@ export default function ReportIssuePage() {
 
     const uploadedMediaUrls: string[] = [];
 
-    for (const { file } of files) {
-      const { data, error } = await uploadIssueImage(file);
-      if (error || !data?.url) {
-        setServerError(error ?? 'Image upload failed');
-        setSubmitting(false);
-        return;
-      }
+    if (PHOTO_UPLOADS_ENABLED) {
+      for (const { file } of files) {
+        const { data, error } = await uploadIssueImage(file);
+        if (error || !data?.url) {
+          setServerError(error ?? 'Image upload failed');
+          setSubmitting(false);
+          return;
+        }
 
-      uploadedMediaUrls.push(data.url);
+        uploadedMediaUrls.push(data.url);
+      }
     }
 
     const { error } = await createIssue({
@@ -327,68 +330,81 @@ export default function ReportIssuePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-foreground/80 mb-2">
-              Evidence Images
-            </label>
-            <div
-              className={`relative rounded-xl border-2 border-dashed transition-colors p-6 text-center cursor-pointer ${
-                dragging
-                  ? 'border-brand bg-brand/5'
-                  : 'border-border hover:border-brand/50 bg-white'
-              }`}
-              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragging(false);
-                const droppedFiles = Array.from(e.dataTransfer.files);
-                addFiles(droppedFiles);
-              }}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/png,image/jpeg,image/webp"
-                className="hidden"
-                onChange={(e) => {
-                  const selectedFiles = Array.from(e.target.files ?? []);
-                  addFiles(selectedFiles);
-                  e.target.value = '';
-                }}
-              />
-              <div className="flex flex-col items-center gap-2">
-                <svg className="w-8 h-8 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a2.25 2.25 0 002.25-2.25V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
-                </svg>
-                <p className="text-sm text-muted">
-                  <span className="font-semibold text-brand">Click to upload</span> or drag & drop
-                </p>
-                <p className="text-xs text-muted">PNG, JPEG, WEBP • Max 5MB • Up to 6 images</p>
-              </div>
-            </div>
-
-            {files.length > 0 && (
-              <div className="mt-3 grid grid-cols-3 md:grid-cols-6 gap-2">
-                {files.map(({ file, previewUrl }, i) => (
-                  <div key={previewUrl} className="relative group rounded-lg overflow-hidden border border-border bg-surface-soft aspect-square">
-                    <Image src={previewUrl} alt={`Preview ${i + 1}`} fill unoptimized sizes="(max-width: 768px) 33vw, 16vw" className="object-cover" />
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); removeFile(i); }}
-                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      ✕
-                    </button>
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[9px] px-1 py-0.5 truncate">
-                      {(file.size / 1024).toFixed(0)}KB
-                    </div>
+            {PHOTO_UPLOADS_ENABLED ? (
+              <>
+                <label className="block text-sm font-semibold text-foreground/80 mb-2">
+                  Evidence Images
+                </label>
+                <div
+                  className={`relative rounded-xl border-2 border-dashed transition-colors p-6 text-center cursor-pointer ${
+                    dragging
+                      ? 'border-brand bg-brand/5'
+                      : 'border-border hover:border-brand/50 bg-white'
+                  }`}
+                  onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragging(false);
+                    const droppedFiles = Array.from(e.dataTransfer.files);
+                    addFiles(droppedFiles);
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const selectedFiles = Array.from(e.target.files ?? []);
+                      addFiles(selectedFiles);
+                      e.target.value = '';
+                    }}
+                  />
+                  <div className="flex flex-col items-center gap-2">
+                    <svg className="w-8 h-8 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a2.25 2.25 0 002.25-2.25V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+                    </svg>
+                    <p className="text-sm text-muted">
+                      <span className="font-semibold text-brand">Click to upload</span> or drag & drop
+                    </p>
+                    <p className="text-xs text-muted">PNG, JPEG, WEBP • Max 5MB • Up to 6 images</p>
                   </div>
-                ))}
-              </div>
+                </div>
+
+                {files.length > 0 && (
+                  <div className="mt-3 grid grid-cols-3 md:grid-cols-6 gap-2">
+                    {files.map(({ file, previewUrl }, i) => (
+                      <div key={previewUrl} className="relative group rounded-lg overflow-hidden border border-border bg-surface-soft aspect-square">
+                        <Image src={previewUrl} alt={`Preview ${i + 1}`} fill unoptimized sizes="(max-width: 768px) 33vw, 16vw" className="object-cover" />
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          ✕
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[9px] px-1 py-0.5 truncate">
+                          {(file.size / 1024).toFixed(0)}KB
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {fileError && <p className="mt-1.5 text-xs text-red-600">{fileError}</p>}
+              </>
+            ) : (
+              <>
+                <label className="block text-sm font-semibold text-foreground/80 mb-2">
+                  Photos
+                </label>
+                <p className="rounded-xl border border-border bg-surface-soft px-4 py-3 text-sm text-muted">
+                  Photo uploads are temporarily disabled. You can still submit reports without images.
+                </p>
+              </>
             )}
-            {fileError && <p className="mt-1.5 text-xs text-red-600">{fileError}</p>}
           </div>
 
           <div className="pt-2">

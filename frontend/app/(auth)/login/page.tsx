@@ -71,7 +71,7 @@ function LoginFormSection() {
 
           <div className="mt-8 space-y-3 text-sm">
             <div className="rounded-xl border border-white/20 bg-white/10 p-4">Structured issue lifecycle from report to resolution.</div>
-            <div className="rounded-xl border border-white/20 bg-white/10 p-4">Geo-aware reporting with evidence images and timeline tracking.</div>
+            <div className="rounded-xl border border-white/20 bg-white/10 p-4">Geo-aware reporting with transparent timelines.</div>
           </div>
         </div>
       </section>
