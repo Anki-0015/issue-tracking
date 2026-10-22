@@ -105,7 +105,7 @@ This starts PostgreSQL, the API, and the frontend. The compose setup provides a 
 
 ## Environment Variables
 
-The frontend reads `NEXT_PUBLIC_API_URL`. The backend requires `DATABASE_URL` and `JWT_SECRET`; `FRONTEND_URL` controls allowed browser origins. Optional `SMTP_*` and `MAIL_FROM*` variables configure reset emails. See `backend/.env.example` and `frontend/.env.example` for the full local configuration templates.
+Local frontend development reads `NEXT_PUBLIC_API_URL`. On Vercel, the frontend rewrites API requests through `BACKEND_URL`; `NEXT_PUBLIC_ENABLE_PHOTO_UPLOADS=false` keeps photo uploads disabled. The backend requires `DATABASE_URL` and `JWT_SECRET`; `FRONTEND_URL` controls allowed browser origins. Optional `SMTP_*` and `MAIL_FROM*` variables configure reset emails. See `backend/.env.example` and `frontend/.env.example` for the full local configuration templates.
 
 ## Continuous Integration
 
