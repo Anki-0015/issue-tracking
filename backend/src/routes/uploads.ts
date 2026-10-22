@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
 import crypto from 'crypto';
+import fs from 'fs';
 import { authMiddleware } from '../middleware/authMiddleware';
 import { uploadIssueImage } from '../controllers/uploadController';
 
@@ -11,7 +11,8 @@ const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 
 const uploadsDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadsDir)) {
+
+if (!process.env.VERCEL) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
@@ -43,6 +44,11 @@ const upload = multer({
 });
 
 router.post('/image', authMiddleware, (req: Request, res: Response, next: NextFunction) => {
+  if (process.env.VERCEL) {
+    res.status(503).json({ error: 'Image uploads are unavailable until persistent storage is configured.' });
+    return;
+  }
+
   upload.single('image')(req, res, (err) => {
     if (!err) {
       next();

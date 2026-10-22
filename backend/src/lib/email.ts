@@ -31,7 +31,6 @@ function getFromAddress(): string {
     return fromEmail;
   }
 
-  // Escape quotes to keep a valid RFC5322 display-name.
   const safeName = fromName.replace(/"/g, '\\"');
   return `"${safeName}" <${fromEmail}>`;
 }

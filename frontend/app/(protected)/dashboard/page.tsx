@@ -84,7 +84,6 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Trending Issues */}
       {trendingIssues.length > 0 && (
         <section className="glass-card rounded-2xl border border-border p-5">
           <div className="flex items-center justify-between">
@@ -119,7 +118,6 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* Recent Issues */}
       <section className="glass-card rounded-2xl border border-border p-5">
         <div className="flex items-center justify-between">
           <div>

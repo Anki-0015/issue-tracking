@@ -183,7 +183,6 @@ async function request<T>(
   }
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
 
 export async function loginUser(payload: { email: string; password: string }) {
   return request<{ user: ApiUser }>('/api/auth/login', {
@@ -229,7 +228,6 @@ export async function getCurrentUser() {
   return request<{ user: ApiUser }>('/api/auth/me');
 }
 
-// ── Issues ────────────────────────────────────────────────────────────────────
 
 export async function createIssue(payload: {
   title: string;
@@ -311,7 +309,6 @@ export async function uploadIssueImage(file: File) {
   });
 }
 
-// ── Upvotes ───────────────────────────────────────────────────────────────────
 
 export async function toggleIssueUpvote(issueId: string) {
   return request<{ upvoted: boolean; upvoteCount: number }>(`/api/issues/${issueId}/upvote`, {
@@ -319,7 +316,6 @@ export async function toggleIssueUpvote(issueId: string) {
   });
 }
 
-// ── Comments ──────────────────────────────────────────────────────────────────
 
 export async function getIssueComments(issueId: string) {
   return request<{ comments: ApiIssueComment[] }>(`/api/issues/${issueId}/comments`);
@@ -332,7 +328,6 @@ export async function addIssueComment(issueId: string, content: string) {
   });
 }
 
-// ── Notifications ─────────────────────────────────────────────────────────────
 
 export async function getNotifications(params?: { page?: number; limit?: number }) {
   const query = new URLSearchParams();
@@ -360,7 +355,6 @@ export async function markAllNotificationsRead() {
   });
 }
 
-// ── Admin ─────────────────────────────────────────────────────────────────────
 
 export async function createUserAsAdmin(payload: {
   name: string;

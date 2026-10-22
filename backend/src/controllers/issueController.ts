@@ -25,7 +25,6 @@ const STATUS_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
   REJECTED: [],
 };
 
-// Helper: enrich an issue with upvote count + current-user upvote flag
 async function enrichIssueWithUpvotes(
   issue: ReturnType<typeof mapIssueWithDerivedFields>,
   userId?: string
@@ -45,7 +44,6 @@ async function enrichIssueWithUpvotes(
   return { ...issue, upvoteCount, hasUpvoted };
 }
 
-// POST /api/issues
 export const createIssue = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
@@ -165,7 +163,6 @@ export const createIssue = async (req: AuthRequest, res: Response): Promise<void
   }
 };
 
-// GET /api/issues
 export const listIssues = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { page = '1', limit = '10', category, status, severity, q, startDate, endDate, sort = 'newest', mine } =
@@ -258,7 +255,6 @@ export const listIssues = async (req: AuthRequest, res: Response): Promise<void>
       }),
     ]);
 
-    // Get user's upvotes for these issues
     const issueIds = issues.map((i) => i.id);
     const userUpvotes = req.user
       ? await prisma.issueUpvote.findMany({
@@ -288,7 +284,6 @@ export const listIssues = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
-// GET /api/issues/summary
 export const getIssueSummary = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const [
@@ -378,7 +373,6 @@ export const getIssueSummary = async (_req: AuthRequest, res: Response): Promise
   }
 };
 
-// GET /api/issues/:id
 export const getIssueById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -413,7 +407,6 @@ export const getIssueById = async (req: AuthRequest, res: Response): Promise<voi
   }
 };
 
-// PATCH /api/issues/:id/status
 export const updateIssueStatus = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
@@ -489,7 +482,6 @@ export const updateIssueStatus = async (req: AuthRequest, res: Response): Promis
       },
     });
 
-    // Create notification for the reporter
     if (issue.reporterId !== req.user.id) {
       await prisma.notification.create({
         data: {
@@ -508,7 +500,6 @@ export const updateIssueStatus = async (req: AuthRequest, res: Response): Promis
   }
 };
 
-// GET /api/issues/:id/history
 export const getIssueHistory = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -539,7 +530,6 @@ export const getIssueHistory = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
-// GET /api/issues/admin/activity
 export const listAdminActivity = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { page = '1', limit = '20' } = req.query as Record<string, string | undefined>;
@@ -595,7 +585,6 @@ export const listAdminActivity = async (req: AuthRequest, res: Response): Promis
   }
 };
 
-// POST /api/issues/:id/upvote
 export const toggleUpvote = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
@@ -616,18 +605,15 @@ export const toggleUpvote = async (req: AuthRequest, res: Response): Promise<voi
     });
 
     if (existing) {
-      // Remove upvote
       await prisma.issueUpvote.delete({ where: { id: existing.id } });
       const upvoteCount = await prisma.issueUpvote.count({ where: { issueId: id } });
       res.status(200).json({ upvoted: false, upvoteCount });
     } else {
-      // Add upvote
       await prisma.issueUpvote.create({
         data: { issueId: id, userId: req.user.id },
       });
       const upvoteCount = await prisma.issueUpvote.count({ where: { issueId: id } });
 
-      // Notify reporter at milestones (5, 10, 25, 50, 100)
       const milestones = [5, 10, 25, 50, 100];
       if (milestones.includes(upvoteCount) && issue.reporterId !== req.user.id) {
         await prisma.notification.create({
@@ -647,7 +633,6 @@ export const toggleUpvote = async (req: AuthRequest, res: Response): Promise<voi
   }
 };
 
-// POST /api/issues/:id/comments
 export const addComment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
@@ -688,7 +673,6 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
       },
     });
 
-    // Notify reporter if someone else comments
     if (issue.reporterId !== req.user.id) {
       await prisma.notification.create({
         data: {
@@ -706,7 +690,6 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
-// GET /api/issues/:id/comments
 export const listComments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;

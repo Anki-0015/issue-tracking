@@ -16,7 +16,6 @@ import { isEmailDeliveryConfigured, sendPasswordResetEmail } from '../lib/email'
 import { handleControllerError, sendError, sendMessage } from '../lib/http';
 import { isStrongPassword, isValidEmail, normalizeEmail, parseEnum } from '../lib/validation';
 
-// POST /api/auth/register
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { name, email, password } = req.body as {
@@ -80,7 +79,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// POST /api/auth/login
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body as {
@@ -128,13 +126,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// POST /api/auth/logout
 export const logout = (_req: Request, res: Response): void => {
   clearAuthCookie(res);
   sendMessage(res, 200, 'Logged out successfully');
 };
 
-// GET /api/auth/me
 export const me = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
@@ -158,7 +154,6 @@ export const me = async (req: AuthRequest, res: Response): Promise<void> => {
   }
 };
 
-// POST /api/auth/forgot-password
 export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email } = req.body as {
@@ -234,7 +229,6 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// POST /api/auth/reset-password
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const { token, newPassword, confirmPassword } = req.body as {
@@ -292,7 +286,6 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-// POST /api/auth/admin/users
 export const createUserByAdmin = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {

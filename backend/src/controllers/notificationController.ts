@@ -3,7 +3,6 @@ import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { handleControllerError, sendError } from '../lib/http';
 
-// GET /api/notifications
 export const getNotifications = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
@@ -46,7 +45,6 @@ export const getNotifications = async (req: AuthRequest, res: Response): Promise
   }
 };
 
-// PATCH /api/notifications/:id/read
 export const markAsRead = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
@@ -74,7 +72,6 @@ export const markAsRead = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
-// PATCH /api/notifications/read-all
 export const markAllAsRead = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {

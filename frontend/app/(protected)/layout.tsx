@@ -81,7 +81,6 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   const [authChecking, setAuthChecking] = useState(true);
   const [sessionError, setSessionError] = useState('');
 
-  // Notifications
   const [notifications, setNotifications] = useState<ApiNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
@@ -114,7 +113,6 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     };
   }, [router]);
 
-  // Poll notifications every 30s
   useEffect(() => {
     if (!user) return;
 
@@ -317,7 +315,6 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {/* Notification Bell */}
             <div className="relative">
               <button
                 onClick={() => setShowNotifPanel((p) => !p)}
@@ -335,9 +332,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
 
               {showNotifPanel && (
                 <>
-                  {/* Backdrop */}
                   <div className="fixed inset-0 z-[9998]" onClick={() => setShowNotifPanel(false)} />
-                  {/* Panel */}
                   <div className="absolute right-0 top-11 z-[9999] w-80 md:w-96 rounded-2xl border border-border bg-white shadow-xl overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-soft">
                       <h3 className="text-sm font-bold text-foreground">Notifications</h3>

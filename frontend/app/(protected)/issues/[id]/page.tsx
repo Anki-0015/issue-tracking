@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import {
@@ -54,6 +55,15 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
+function loadIssuePageData(issueId: string) {
+  return Promise.all([
+    getIssueById(issueId),
+    getIssueHistory(issueId),
+    getIssueComments(issueId),
+    getCurrentUser(),
+  ]);
+}
+
 export default function IssueDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -77,34 +87,30 @@ export default function IssueDetailPage() {
 
   const issueId = params.id;
 
-  async function fetchData() {
-    setLoading(true);
-    setError('');
-
-    const [issueRes, historyRes, commentsRes, userRes] = await Promise.all([
-      getIssueById(issueId),
-      getIssueHistory(issueId),
-      getIssueComments(issueId),
-      getCurrentUser(),
-    ]);
-
-    if (issueRes.error) {
-      setError(issueRes.error);
-      setLoading(false);
-      return;
-    }
-
-    setIssue(issueRes.data?.issue ?? null);
-    setHistory(historyRes.data?.history ?? []);
-    setComments(commentsRes.data?.comments ?? []);
-    setViewer(userRes.data?.user ?? null);
-    setLoading(false);
-  }
-
   useEffect(() => {
     if (!issueId) return;
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let active = true;
+
+    void loadIssuePageData(issueId).then(([issueRes, historyRes, commentsRes, userRes]) => {
+      if (!active) return;
+
+      if (issueRes.error) {
+        setError(issueRes.error);
+        setLoading(false);
+        return;
+      }
+
+      setIssue(issueRes.data?.issue ?? null);
+      setHistory(historyRes.data?.history ?? []);
+      setComments(commentsRes.data?.comments ?? []);
+      setViewer(userRes.data?.user ?? null);
+      setError('');
+      setLoading(false);
+    });
+
+    return () => {
+      active = false;
+    };
   }, [issueId]);
 
   const allowedNextStatuses = useMemo(
@@ -147,7 +153,11 @@ export default function IssueDetailPage() {
     setNextStatus('');
     setStatusComment('');
     setRejectionReason('');
-    await fetchData();
+    const [issueRes, historyRes, commentsRes, userRes] = await loadIssuePageData(issue.id);
+    if (issueRes.data?.issue) setIssue(issueRes.data.issue);
+    if (historyRes.data?.history) setHistory(historyRes.data.history);
+    if (commentsRes.data?.comments) setComments(commentsRes.data.comments);
+    if (userRes.data?.user) setViewer(userRes.data.user);
     setUpdating(false);
   };
 
@@ -178,7 +188,7 @@ export default function IssueDetailPage() {
     setPostingComment(false);
   };
 
-  if (loading) {
+  if (loading || (!issue && !error) || Boolean(issue && issue.id !== issueId)) {
     return <div className="glass-card rounded-2xl border border-border p-6 text-sm text-muted">Loading issue details...</div>;
   }
 
@@ -192,7 +202,6 @@ export default function IssueDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <section className="glass-card rounded-2xl border border-border p-6">
         <button
           onClick={() => router.push('/issues')}
@@ -208,7 +217,6 @@ export default function IssueDetailPage() {
             <p className="mt-2 text-sm text-muted max-w-3xl">{issue.description}</p>
           </div>
           <div className="flex items-center gap-3">
-            {/* Upvote Button */}
             <button
               onClick={handleUpvote}
               disabled={upvoting}
@@ -261,14 +269,12 @@ export default function IssueDetailPage() {
         </div>
       </section>
 
-      {/* Map */}
       {issue.latitude && issue.longitude && (
         <section className="glass-card rounded-2xl border border-border overflow-hidden">
           <IssueMap lat={issue.latitude} lng={issue.longitude} label={issue.locationLabel ?? issue.title} />
         </section>
       )}
 
-      {/* Timeline + Status Update */}
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         <div className="xl:col-span-2 glass-card rounded-2xl border border-border p-5">
           <h2 className="text-lg font-bold text-foreground">Audit Timeline</h2>
@@ -351,12 +357,10 @@ export default function IssueDetailPage() {
         </aside>
       </section>
 
-      {/* Comments */}
       <section className="glass-card rounded-2xl border border-border p-5">
         <h2 className="text-lg font-bold text-foreground">Discussion</h2>
         <p className="text-xs text-muted mt-1">{comments.length} comment{comments.length !== 1 ? 's' : ''}</p>
 
-        {/* Comment input */}
         <div className="mt-4 flex gap-3">
           <div className="flex items-center justify-center w-9 h-9 rounded-full bg-brand text-white text-xs font-bold shrink-0">
             {viewer?.name?.charAt(0).toUpperCase() ?? '?'}
@@ -383,7 +387,6 @@ export default function IssueDetailPage() {
           </div>
         </div>
 
-        {/* Comment list */}
         <div className="mt-5 space-y-3">
           {comments.map((c) => (
             <article key={c.id} className="flex gap-3">
@@ -408,7 +411,6 @@ export default function IssueDetailPage() {
         </div>
       </section>
 
-      {/* Evidence Images */}
       {issue.mediaUrls.length > 0 && (
         <section className="glass-card rounded-2xl border border-border p-5">
           <h3 className="text-base font-bold text-foreground">Evidence Images</h3>
@@ -416,9 +418,8 @@ export default function IssueDetailPage() {
             {issue.mediaUrls.map((url, index) => {
               const resolvedUrl = url.startsWith('http') ? url : `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}${url}`;
               return (
-                <a key={`${url}-${index}`} href={resolvedUrl} target="_blank" rel="noreferrer" className="block rounded-xl border border-border overflow-hidden bg-surface-soft hover:shadow-md transition-shadow">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={resolvedUrl} alt={`Issue evidence ${index + 1}`} className="w-full h-40 object-cover" />
+                <a key={`${url}-${index}`} href={resolvedUrl} target="_blank" rel="noreferrer" className="relative block h-40 rounded-xl border border-border overflow-hidden bg-surface-soft hover:shadow-md transition-shadow">
+                  <Image src={resolvedUrl} alt={`Issue evidence ${index + 1}`} fill unoptimized sizes="(max-width: 768px) 50vw, 33vw" className="object-cover" />
                 </a>
               );
             })}

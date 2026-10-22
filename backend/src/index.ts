@@ -49,7 +49,6 @@ const authLimiter = rateLimit({
   message: { error: 'Too many authentication attempts. Please retry later.' },
 });
 
-// ── Middleware ────────────────────────────────────────────────────────────────
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
@@ -76,19 +75,16 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), {
   immutable: isProduction,
 }));
 
-// ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth', authLimiter);
 app.use('/api/auth', authRouter);
 app.use('/api/issues', issuesRouter);
 app.use('/api/uploads', uploadsRouter);
 app.use('/api/notifications', notificationsRouter);
 
-// Health check
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Readiness check (includes DB connectivity)
 app.get('/ready', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
@@ -98,7 +94,6 @@ app.get('/ready', async (_req, res) => {
   }
 });
 
-// 404 handler
 app.use((_req, res) => {
   sendError(res, 404, 'Route not found');
 });
@@ -118,7 +113,6 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   sendError(res, 500, 'Internal server error');
 });
 
-// ── Start ─────────────────────────────────────────────────────────────────────
 const server = app.listen(PORT, () => {
   console.log(`\n  CivicReport API running on http://localhost:${PORT}`);
   console.log(`   ENV: ${process.env.NODE_ENV ?? 'development'}\n`);

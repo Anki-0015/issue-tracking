@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 
-// Fix default marker icon paths for Leaflet in bundled envs
 const defaultIcon = L.icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -47,6 +46,7 @@ export default function LocationPicker({ onSelect }: LocationPickerProps) {
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState('');
   const mapRef = useRef<L.Map | null>(null);
+  const hasRequestedLocationRef = useRef(false);
 
   const handlePosition = useCallback(
     async (lat: number, lng: number) => {
@@ -101,14 +101,27 @@ export default function LocationPicker({ onSelect }: LocationPickerProps) {
     );
   }, [handlePosition]);
 
-  // Auto-detect location on mount
   useEffect(() => {
-    if (!position) {
-      handleGPS();
+    if (!position && !hasRequestedLocationRef.current && navigator.geolocation) {
+      hasRequestedLocationRef.current = true;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          void handlePosition(lat, lng);
+          mapRef.current?.flyTo([lat, lng], 16, { duration: 1 });
+        },
+        (err) => {
+          setLocError(
+            err.code === 1
+              ? 'Location access denied. Please enable location permissions.'
+              : 'Could not determine your location. Try again.'
+          );
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
     }
-    // Only run on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [handlePosition, position]);
 
   return (
     <div className="space-y-3">

@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import dynamic from 'next/dynamic';
 import { ApiIssueCategory, ApiIssueSeverity, createIssue, uploadIssueImage } from '@/lib/api';
 import { displayEnum } from '@/lib/format';
 
-// Dynamic import to avoid SSR issues with Leaflet
 const LocationPicker = dynamic(() => import('./LocationPicker'), { ssr: false });
 
 interface ReportIssueForm {
@@ -50,13 +50,18 @@ const MAX_IMAGE_COUNT = 6;
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
+interface SelectedImage {
+  file: File;
+  previewUrl: string;
+}
+
 export default function ReportIssuePage() {
   const router = useRouter();
   const [serverError, setServerError] = useState('');
   const [fileError, setFileError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const [files, setFiles] = useState<SelectedImage[]>([]);
+  const filesRef = useRef<SelectedImage[]>([]);
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -64,7 +69,7 @@ export default function ReportIssuePage() {
     register,
     handleSubmit,
     setValue,
-    watch,
+    control,
     formState: { errors },
   } = useForm<ReportIssueForm>({
     defaultValues: {
@@ -73,16 +78,9 @@ export default function ReportIssuePage() {
     },
   });
 
-  const selectedCategory = watch('category');
-  const selectedSeverity = watch('severity');
-  const currentSubCategory = watch('subCategory');
-
-  // Generate image previews
-  useEffect(() => {
-    const urls = files.map((f) => URL.createObjectURL(f));
-    setPreviews(urls);
-    return () => urls.forEach((u) => URL.revokeObjectURL(u));
-  }, [files]);
+  const selectedCategory = useWatch({ control, name: 'category' });
+  const selectedSeverity = useWatch({ control, name: 'severity' });
+  const currentSubCategory = useWatch({ control, name: 'subCategory' });
 
   const handleLocationSelect = useCallback(
     (lat: number, lng: number, label: string) => {
@@ -109,20 +107,29 @@ export default function ReportIssuePage() {
         return true;
       });
 
-      setFiles((prev) => {
-        const combined = [...prev, ...validFiles];
-        if (combined.length > MAX_IMAGE_COUNT) {
-          setFileError(`You can upload up to ${MAX_IMAGE_COUNT} images.`);
-          return combined.slice(0, MAX_IMAGE_COUNT);
-        }
-        return combined;
-      });
+      const combined = [
+        ...filesRef.current,
+        ...validFiles.map((file) => ({ file, previewUrl: URL.createObjectURL(file) })),
+      ];
+      const nextFiles = combined.slice(0, MAX_IMAGE_COUNT);
+
+      if (combined.length > MAX_IMAGE_COUNT) {
+        setFileError(`You can upload up to ${MAX_IMAGE_COUNT} images.`);
+        combined.slice(MAX_IMAGE_COUNT).forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
+      }
+
+      filesRef.current = nextFiles;
+      setFiles(nextFiles);
     },
     []
   );
 
   const removeFile = useCallback((index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    const selectedFile = filesRef.current[index];
+    if (selectedFile) URL.revokeObjectURL(selectedFile.previewUrl);
+    const nextFiles = filesRef.current.filter((_, i) => i !== index);
+    filesRef.current = nextFiles;
+    setFiles(nextFiles);
     setFileError('');
   }, []);
 
@@ -133,7 +140,7 @@ export default function ReportIssuePage() {
 
     const uploadedMediaUrls: string[] = [];
 
-    for (const file of files) {
+    for (const { file } of files) {
       const { data, error } = await uploadIssueImage(file);
       if (error || !data?.url) {
         setServerError(error ?? 'Image upload failed');
@@ -162,6 +169,7 @@ export default function ReportIssuePage() {
       return;
     }
 
+    files.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
     router.push('/issues');
     router.refresh();
   };
@@ -184,7 +192,6 @@ export default function ReportIssuePage() {
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
-          {/* Title & Description */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label htmlFor="title" className="block text-sm font-semibold text-foreground/80 mb-1.5">
@@ -226,7 +233,6 @@ export default function ReportIssuePage() {
             </div>
           </div>
 
-          {/* Category & Sub-category */}
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -264,7 +270,6 @@ export default function ReportIssuePage() {
               </div>
             </div>
 
-            {/* Smart Preset Chips */}
             <div className="flex flex-wrap gap-2">
               {CATEGORY_PRESETS[selectedCategory]?.map((preset) => (
                 <button
@@ -283,7 +288,6 @@ export default function ReportIssuePage() {
             </div>
           </div>
 
-          {/* Severity */}
           <div>
             <label className="block text-sm font-semibold text-foreground/80 mb-2">Severity</label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -312,7 +316,6 @@ export default function ReportIssuePage() {
             </div>
           </div>
 
-          {/* Location Picker */}
           <div>
             <label className="block text-sm font-semibold text-foreground/80 mb-2">
               📍 Issue Location
@@ -323,7 +326,6 @@ export default function ReportIssuePage() {
             <input type="hidden" {...register('locationLabel')} />
           </div>
 
-          {/* Image Upload */}
           <div>
             <label className="block text-sm font-semibold text-foreground/80 mb-2">
               Evidence Images
@@ -367,13 +369,11 @@ export default function ReportIssuePage() {
               </div>
             </div>
 
-            {/* Image Previews */}
-            {previews.length > 0 && (
+            {files.length > 0 && (
               <div className="mt-3 grid grid-cols-3 md:grid-cols-6 gap-2">
-                {previews.map((src, i) => (
-                  <div key={src} className="relative group rounded-lg overflow-hidden border border-border bg-surface-soft aspect-square">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} alt={`Preview ${i + 1}`} className="w-full h-full object-cover" />
+                {files.map(({ file, previewUrl }, i) => (
+                  <div key={previewUrl} className="relative group rounded-lg overflow-hidden border border-border bg-surface-soft aspect-square">
+                    <Image src={previewUrl} alt={`Preview ${i + 1}`} fill unoptimized sizes="(max-width: 768px) 33vw, 16vw" className="object-cover" />
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); removeFile(i); }}
@@ -382,7 +382,7 @@ export default function ReportIssuePage() {
                       ✕
                     </button>
                     <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[9px] px-1 py-0.5 truncate">
-                      {(files[i]?.size / 1024).toFixed(0)}KB
+                      {(file.size / 1024).toFixed(0)}KB
                     </div>
                   </div>
                 ))}
@@ -391,7 +391,6 @@ export default function ReportIssuePage() {
             {fileError && <p className="mt-1.5 text-xs text-red-600">{fileError}</p>}
           </div>
 
-          {/* Submit */}
           <div className="pt-2">
             <button
               type="submit"

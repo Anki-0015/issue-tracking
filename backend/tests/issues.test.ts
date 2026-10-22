@@ -84,7 +84,7 @@ describe('calculateTimeToFinishMinutes', () => {
 
   it('calculates correct time in minutes', () => {
     const createdAt = new Date('2025-01-01T00:00:00.000Z');
-    const resolvedAt = new Date('2025-01-01T02:30:00.000Z'); // 150 minutes later
+    const resolvedAt = new Date('2025-01-01T02:30:00.000Z');
     const issue = makeIssue({ createdAt, resolvedAt });
     expect(calculateTimeToFinishMinutes(issue)).toBe(150);
   });

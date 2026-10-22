@@ -6,13 +6,11 @@ import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = 'test-secret-key-for-unit-tests';
 
-// Helper: create a minimal mock Response
 const createResponse = () => ({
   status: jest.fn().mockReturnThis(),
   json: jest.fn().mockReturnThis(),
 });
 
-// Helper: create a mock Request with optional cookie
 const createRequest = (token?: string): AuthRequest =>
   ({
     cookies: token ? { auth_token: token } : {},
@@ -52,7 +50,7 @@ describe('authMiddleware', () => {
     const expired = jwt.sign(
       { id: 'u1', name: 'Test', email: 'test@example.com', role: 'CITIZEN' },
       JWT_SECRET,
-      { expiresIn: -1 } // already expired
+      { expiresIn: -1 }
     );
     const req = createRequest(expired);
     const res = createResponse();
@@ -99,7 +97,7 @@ describe('authMiddleware', () => {
 
   it('returns 401 for token missing required fields (no role)', () => {
     const token = jwt.sign(
-      { id: 'u1', email: 'user@example.com' }, // missing role
+      { id: 'u1', email: 'user@example.com' },
       JWT_SECRET,
       { expiresIn: '1h' }
     );
