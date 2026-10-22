@@ -118,38 +118,39 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   sendError(res, 500, 'Internal server error');
 });
 
-// ── Start ─────────────────────────────────────────────────────────────────────
-const server = app.listen(PORT, () => {
-  console.log(`\n  CivicReport API running on http://localhost:${PORT}`);
-  console.log(`   ENV: ${process.env.NODE_ENV ?? 'development'}\n`);
-});
-
-async function shutdown(signal: NodeJS.Signals): Promise<void> {
-  console.log(`\n  Received ${signal}. Shutting down gracefully...`);
-
-  server.close(async () => {
-    try {
-      await prisma.$disconnect();
-      console.log('  Database connection closed.');
-      process.exit(0);
-    } catch (error) {
-      console.error('  Error during Prisma disconnect:', error);
-      process.exit(1);
-    }
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, () => {
+    console.log(`\n  CivicReport API running on http://localhost:${PORT}`);
+    console.log(`   ENV: ${process.env.NODE_ENV ?? 'development'}\n`);
   });
 
-  setTimeout(() => {
-    console.error('  Force shutdown after timeout.');
-    process.exit(1);
-  }, 10_000).unref();
+  async function shutdown(signal: NodeJS.Signals): Promise<void> {
+    console.log(`\n  Received ${signal}. Shutting down gracefully...`);
+
+    server.close(async () => {
+      try {
+        await prisma.$disconnect();
+        console.log('  Database connection closed.');
+        process.exit(0);
+      } catch (error) {
+        console.error('  Error during Prisma disconnect:', error);
+        process.exit(1);
+      }
+    });
+
+    setTimeout(() => {
+      console.error('  Force shutdown after timeout.');
+      process.exit(1);
+    }, 10_000).unref();
+  }
+
+  process.on('SIGTERM', () => {
+    void shutdown('SIGTERM');
+  });
+
+  process.on('SIGINT', () => {
+    void shutdown('SIGINT');
+  });
 }
-
-process.on('SIGTERM', () => {
-  void shutdown('SIGTERM');
-});
-
-process.on('SIGINT', () => {
-  void shutdown('SIGINT');
-});
 
 export default app;

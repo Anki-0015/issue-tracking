@@ -47,7 +47,7 @@ const SEVERITY_INFO: Record<ApiIssueSeverity, { color: string; description: stri
 };
 
 const MAX_IMAGE_COUNT = 6;
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_SIZE_BYTES = 4 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 export default function ReportIssuePage() {
@@ -103,7 +103,7 @@ export default function ReportIssuePage() {
           return false;
         }
         if (f.size > MAX_IMAGE_SIZE_BYTES) {
-          setFileError('Each image must be 5MB or smaller.');
+          setFileError('Each image must be 4MB or smaller.');
           return false;
         }
         return true;
@@ -363,7 +363,7 @@ export default function ReportIssuePage() {
                 <p className="text-sm text-muted">
                   <span className="font-semibold text-brand">Click to upload</span> or drag & drop
                 </p>
-                <p className="text-xs text-muted">PNG, JPEG, WEBP • Max 5MB • Up to 6 images</p>
+                <p className="text-xs text-muted">PNG, JPEG, WEBP • Max 4MB • Up to 6 images</p>
               </div>
             </div>
 

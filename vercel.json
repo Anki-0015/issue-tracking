@@ -3,8 +3,5 @@
   "outputDirectory": "frontend/.next",
   "installCommand": "cd frontend && npm ci",
   "framework": "nextjs",
-  "rewrites": [],
-  "env": {
-    "NEXT_PUBLIC_API_URL": "@next_public_api_url"
-  }
+  "rewrites": []
 }
